@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>druid web - crow REPL</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>//// druid web</h1>
+            <div class="connection-controls">
+                <button id="connectBtn" class="btn btn-primary">Connect to crow</button>
+                <button id="disconnectBtn" class="btn btn-secondary" disabled>Disconnect</button>
+                <span id="statusIndicator" class="status-indicator"></span>
+                <span id="statusText">Not connected</span>
+            </div>
+        </header>
+
+        <div class="help-section" id="helpSection">
+            <h3>Help</h3>
+            <pre id="helpText">
+ h            this menu
+ r            runs previous script that was run with r &lt;filename&gt;
+ u            uploads 'sketch.lua'
+ r &lt;filename&gt; run &lt;filename&gt;
+ u &lt;filename&gt; upload &lt;filename&gt;
+ p            print current userscript
+ clear        clear output
+
+Crow commands (prefix with ^^):
+ ^^v          print firmware version
+ ^^p          print current userscript
+ ^^r          reset/reboot crow
+ ^^k          kill/restart Lua environment
+ ^^i          print identity (serial number)
+ ^^b          enter bootloader mode</pre>
+            <button id="closeHelp" class="btn btn-secondary">Close</button>
+        </div>
+
+        <main>
+            <div class="output-container">
+                <div id="output" class="output"></div>
+            </div>
+            
+            <div class="input-container">
+                <span class="prompt">&gt;</span>
+                <input type="text" id="input" class="input" autocomplete="off" placeholder="Type commands here... 'h' for help" disabled>
+            </div>
+        </main>
+
+        <footer>
+            <button id="helpBtn" class="btn btn-secondary">Help (h)</button>
+            <button id="clearBtn" class="btn btn-secondary">Clear Output</button>
+            <button id="uploadBtn" class="btn btn-secondary" disabled>Upload File (u)</button>
+            <button id="runBtn" class="btn btn-secondary" disabled>Run File (r)</button>
+            <input type="file" id="fileInput" accept=".lua" style="display: none;">
+        </footer>
+    </div>
+
+    <div id="browserWarning" class="warning-modal" style="display: none;">
+        <div class="warning-content">
+            <h2>⚠️ Browser Not Supported</h2>
+            <p>This application requires the Web Serial API, which is only available in Chromium-based browsers.</p>
+            <p>Please use Chrome, Edge, or Opera to access druid web.</p>
+            <button id="closeWarning" class="btn btn-primary">Close</button>
+        </div>
+    </div>
+
+    <script src="druid.js"></script>
+</body>
+</html>
