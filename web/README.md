@@ -1,19 +1,22 @@
 # druid web
 
-A web-based REPL for [monome crow](https://github.com/monome/crow) using the Web Serial API.
+A web-based editor and REPL for [monome crow](https://github.com/monome/crow) using the Web Serial API. Inspired by [maiden](https://github.com/monome/maiden), the norns web editor.
 
 ## Overview
 
-**druid web** provides a browser-based interface for communicating with crow devices over USB. It replicates the core functionality of the command-line druid tool in a web application that runs entirely in your browser.
+**druid web** provides a browser-based interface for writing, editing, and running Lua scripts on crow devices over USB. It features a split-screen layout with a Monaco code editor on the left and an output/input REPL on the right, similar to maiden's interface.
 
 ## Features
 
-- 📡 Direct USB connection to crow via Web Serial API
-- 💻 Interactive REPL for live coding
-- 📁 Upload and run Lua scripts
-- 🎨 Clean, terminal-inspired UI
-- 📜 Command history (use ↑/↓ arrows)
-- 🔌 Automatic reconnection support
+- 🎨 **Maiden-inspired interface** - Clean, minimal design matching maiden's aesthetic
+- 📝 **Monaco code editor** - Full-featured editor with syntax highlighting for Lua
+- 📡 **Direct USB connection** - Connect to crow via Web Serial API
+- 💻 **Split-screen layout** - Code editor on left, REPL output/input on right
+- ▶️ **Run & upload scripts** - Execute scripts immediately or save to crow's flash
+- 💾 **File operations** - Open, edit, and save Lua scripts locally
+- ⌨️ **Keyboard shortcuts** - ⌘P to run, ⌘S to save
+- 🔄 **Resizable panes** - Adjust editor/REPL split to your preference
+- 📜 **Dual REPL tabs** - Separate output view and multi-line input area
 
 ## Browser Requirements
 
@@ -60,43 +63,48 @@ Then open `http://localhost:8000` in your browser.
 
 ## Usage
 
+## Usage
+
 ### Connecting to crow
 
-1. Click **"Connect to crow"** button
+1. Click **"connect"** button in the toolbar
 2. Select your crow device from the browser's serial port picker
 3. Grant permission to access the device
-4. You should see "Connected!" and the status indicator will turn green
+4. The status indicator will turn teal when connected
 
-### Basic Commands
+### Code Editor
 
-Type commands in the input field and press Enter:
+The left pane contains a full Monaco code editor:
 
-```
-> print("hello crow")
-hello crow
+- Write Lua scripts with syntax highlighting
+- Use standard editor features (find, replace, etc.)
+- Scripts start with a basic template
+- Modified indicator (•) appears when unsaved
 
-> output[1].volts = 2.5
+**Editor actions:**
+- **New** - Create a new script (⌘N to clear)
+- **Open** - Load a .lua file from your computer
+- **Save** - Download current script to your computer (⌘S)
+- **▶ Run** - Execute the script on crow without saving (⌘P)
+- **↑ Upload** - Save script to crow's flash memory
 
-> for i=1,4 do print(i) end
-1
-2
-3
-4
-```
+### REPL Tabs
 
-### Special druid Commands
+The right pane has two tabs:
 
-- `h` - Show help menu
-- `p` - Print current userscript stored on crow
-- `r` - Run the last script file
-- `r <filename>` - Run a Lua file (opens file picker)
-- `u` - Upload 'sketch.lua' (opens file picker)
-- `u <filename>` - Upload a Lua file (opens file picker)
-- `clear` - Clear the output window
+**Output tab** - View crow's responses and print statements
+- Auto-scrolls to newest output
+- Shows script execution feedback
+- Displays errors and messages from crow
+
+**Input tab** - Multi-line Lua code entry
+- Write and test code snippets
+- Press ⌘Enter (or Ctrl+Enter) to execute
+- Useful for quick commands without editing the main script
 
 ### Crow System Commands
 
-Prefix these commands with `^^`:
+You can send special commands to crow:
 
 - `^^v` - Print firmware version
 - `^^p` - Print current userscript
@@ -106,17 +114,7 @@ Prefix these commands with `^^`:
 - `^^c` - Clear userscript
 - `^^b` - Enter bootloader mode
 
-### File Operations
-
-**Run a script** (temporary, not saved to flash):
-1. Click "Run File" button or type `r` and press Enter
-2. Select a `.lua` file from the file picker
-3. The script executes immediately but is not saved
-
-**Upload a script** (saved to flash, runs on boot):
-1. Click "Upload File" button or type `u` and press Enter
-2. Select a `.lua` file from the file picker
-3. The script is uploaded and stored in crow's flash memory
+Type these in the input tab and press ⌘Enter.
 
 ## Limitations
 
@@ -190,15 +188,18 @@ The browser requires explicit user permission to access serial ports. You must c
 
 | Feature | druid (CLI) | druid web |
 |---------|-------------|-----------|
-| REPL | ✅ | ✅ |
-| Run scripts | ✅ | ✅ |
-| Upload scripts | ✅ | ✅ |
-| Download scripts | ✅ | ❌ |
-| Firmware updates | ✅ | ❌ |
+| Code editor | External | ✅ Built-in Monaco editor |
+| REPL | ✅ | ✅ Split view with tabs |
+| Run scripts | ✅ | ✅ One-click execution |
+| Upload scripts | ✅ | ✅ Upload & save |
+| Download scripts | ✅ | ❌ (open local files instead) |
+| Firmware updates | ✅ | ❌ DFU not accessible |
 | WebSocket server | ✅ | ❌ |
-| Cross-platform | ✅ | ✅ (Chrome-based browsers) |
 | Installation required | ✅ (Python) | ❌ (just open in browser) |
 | Works offline | ✅ | ✅ (after loading page) |
+| Multi-file projects | ✅ | ❌ Single file editing |
+| Split-screen view | ❌ | ✅ Editor + REPL |
+| Syntax highlighting | Depends on editor | ✅ Built-in |
 
 ## License
 
