@@ -1223,7 +1223,7 @@ class DruidApp {
 
     async uploadFileFromDrop(file) {
         if (!this.crow.isConnected) {
-            this.outputLine('Error: Not connected to crow');
+            this.outputLine('Error: Not connected to usb device (click connect in the header)');
             return;
         }
 
@@ -1250,7 +1250,7 @@ class DruidApp {
 
     async sendToCrow(code) {
         if (!this.crow.isConnected) {
-            this.outputLine('Error: Not connected to crow');
+            this.outputLine('Error: Not connected to usb device (click connect in the header)');
             return;
         }
 
@@ -1386,7 +1386,7 @@ class DruidApp {
             } else {
                 // If editor is hidden, auto-upload to crow
                 if (!this.crow.isConnected) {
-                    this.outputLine('Error: Not connected to crow');
+                    this.outputLine('Error: Not connected to usb device (click connect in the header)');
                     return;
                 }
                 
