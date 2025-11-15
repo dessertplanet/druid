@@ -942,13 +942,15 @@ class DruidApp {
             e.preventDefault();
             const code = this.elements.replInput.value.trim();
             if (code && this.crow.isConnected) {
+                // Output the sent command BEFORE sending to ensure it appears first
+                this.outputLine(`>> ${code}`);
+                
                 try {
                     const lines = code.split('\n');
                     for (const line of lines) {
                         await this.crow.writeLine(line);
                         await this.delay(1);
                     }
-                    this.outputLine(`>> ${code}`);
                     
                     // Add to command history (avoid duplicates of the last command)
                     if (this.commandHistory.length === 0 || this.commandHistory[this.commandHistory.length - 1] !== code) {
