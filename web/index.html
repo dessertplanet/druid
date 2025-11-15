@@ -11,9 +11,12 @@
     <div class="app-container">
         <header class="app-header">
             <div class="header-left">
-                <h1>//// druid</h1>
-            </div>
-            <div class="header-center">
+                <h1>//// web-druid</h1>
+                <div class="repl-status-pill">
+                    <span id="replStatusIndicator" class="repl-status-indicator"></span>
+                    <span id="replStatusText" class="repl-status-text">not connected</span>
+                </div>
+                <button id="replConnectionBtn" class="repl-connection-btn">connect</button>
             </div>
             <div class="header-right">
                 <span class="editor-toggle-label">editor</span>
@@ -49,16 +52,6 @@
                     <div class="split-handle-bar"></div>
                 </div>
                 <div class="repl-pane full-width" id="replPane">
-                    <div class="repl-header">
-                        <div class="repl-status">
-                            <span id="replStatusIndicator" class="repl-status-indicator"></span>
-                            <span id="replStatusText" class="repl-status-text">not connected</span>
-                        </div>
-                        <div class="repl-controls">
-                            <button id="replConnectBtn" class="repl-control-btn">connect</button>
-                            <button id="replDisconnectBtn" class="repl-control-btn" disabled>disconnect</button>
-                        </div>
-                    </div>
                     <div class="repl-content">
                         <div id="output" class="repl-output"></div>
                         <div class="repl-actions">

@@ -67,7 +67,28 @@ class CrowConnection {
         } catch (error) {
             console.error('Read error:', error);
             if (this.isConnected) {
-                await this.disconnect();
+                // Close streams but keep port reference
+                this.isConnected = false;
+                this.shouldReconnect = false;
+                
+                if (this.reader) {
+                    await this.reader.cancel().catch(() => {});
+                }
+                if (this.writer) {
+                    await this.writer.close().catch(() => {});
+                }
+                
+                this.reader = null;
+                this.writer = null;
+                
+                if (this.port) {
+                    await this.port.close().catch(() => {});
+                    this.port = null;
+                }
+                
+                if (this.onConnectionChange) {
+                    this.onConnectionChange(false, 'device disconnected - click connect to reconnect');
+                }
             }
         }
     }
@@ -93,17 +114,17 @@ class CrowConnection {
         this.isConnected = false;
 
         if (this.reader) {
-            await this.reader.cancel();
+            await this.reader.cancel().catch(() => {});
             await this.readableStreamClosed.catch(() => {});
         }
 
         if (this.writer) {
-            await this.writer.close();
+            await this.writer.close().catch(() => {});
             await this.writableStreamClosed.catch(() => {});
         }
 
         if (this.port) {
-            await this.port.close();
+            await this.port.close().catch(() => {});
         }
 
         this.port = null;
@@ -146,8 +167,7 @@ class DruidApp {
             renameBtn: document.getElementById('renameBtn'),
             
             // REPL controls
-            connectBtn: document.getElementById('replConnectBtn'),
-            disconnectBtn: document.getElementById('replDisconnectBtn'),
+            connectionBtn: document.getElementById('replConnectionBtn'),
             replStatusIndicator: document.getElementById('replStatusIndicator'),
             replStatusText: document.getElementById('replStatusText'),
             
@@ -173,13 +193,13 @@ class DruidApp {
             closeWarning: document.getElementById('closeWarning')
         };
 
-        this.outputLine('//// druid. connect to crow to begin.');
+        this.outputLine('//// welcome. connect to crow or blackbird to begin.');
     }
 
     checkBrowserSupport() {
         if (!('serial' in navigator)) {
             this.elements.browserWarning.style.display = 'flex';
-            this.elements.connectBtn.disabled = true;
+            this.elements.connectionBtn.disabled = true;
             this.outputLine('ERROR: Web Serial API not supported in this browser.');
             this.outputLine('Please use Chrome, Edge, or Opera.');
         }
@@ -190,8 +210,7 @@ class DruidApp {
         this.elements.toggleEditorBtn.addEventListener('change', (e) => this.toggleEditor(e.target.checked));
 
         // Connection
-        this.elements.connectBtn.addEventListener('click', () => this.connect());
-        this.elements.disconnectBtn.addEventListener('click', () => this.disconnect());
+        this.elements.connectionBtn.addEventListener('click', () => this.toggleConnection());
 
         // Script actions
         this.elements.runBtn.addEventListener('click', () => this.runScript());
@@ -309,6 +328,14 @@ class DruidApp {
         }
     }
 
+    async toggleConnection() {
+        if (this.crow.isConnected) {
+            await this.disconnect();
+        } else {
+            await this.connect();
+        }
+    }
+
     async connect() {
         this.outputLine('Connecting to crow...');
         const success = await this.crow.connect();
@@ -323,18 +350,24 @@ class DruidApp {
     }
 
     handleConnectionChange(connected, error) {
-        this.elements.connectBtn.disabled = connected;
-        this.elements.disconnectBtn.disabled = !connected;
         this.elements.runBtn.disabled = !connected;
         this.elements.uploadBtn.disabled = !connected;
         this.elements.replInput.disabled = !connected;
 
         if (connected) {
+            this.elements.connectionBtn.textContent = 'disconnect';
             this.elements.replStatusIndicator.classList.add('connected');
             this.elements.replStatusText.textContent = 'connected';
         } else {
+            this.elements.connectionBtn.textContent = 'connect';
             this.elements.replStatusIndicator.classList.remove('connected');
-            this.elements.replStatusText.textContent = error ? `error: ${error}` : 'not connected';
+            const statusMsg = error || 'not connected';
+            this.elements.replStatusText.textContent = statusMsg;
+            
+            // Show disconnection message in REPL
+            if (error && error.includes('disconnected')) {
+                this.outputLine(`\n${error}`);
+            }
         }
     }
 
@@ -350,13 +383,16 @@ class DruidApp {
         const code = this.editor.getValue();
         
         try {
+            await this.crow.writeLine('^^s'); // start script upload
+            await this.delay(200);
+            
             const lines = code.split('\n');
             for (const line of lines) {
-                if (line.trim()) {
-                    await this.crow.writeLine(line);
-                    await this.delay(1);
-                }
+                await this.crow.writeLine(line);
+                await this.delay(1);
             }
+            
+            await this.crow.writeLine('^^e'); // execute script
             await this.delay(100);
             this.outputLine(`Ran ${this.scriptName}\n`);
         } catch (error) {
@@ -371,8 +407,8 @@ class DruidApp {
         const code = this.editor.getValue();
         
         try {
-            await this.crow.writeLine('^^c'); // clear
-            await this.delay(100);
+            await this.crow.writeLine('^^s'); // start script upload
+            await this.delay(200);
             
             const lines = code.split('\n');
             for (const line of lines) {
@@ -380,6 +416,7 @@ class DruidApp {
                 await this.delay(1);
             }
             
+            await this.crow.writeLine('^^w'); // write to flash
             await this.delay(100);
             this.outputLine(`Uploaded ${this.scriptName}\n`);
             this.setModified(false);

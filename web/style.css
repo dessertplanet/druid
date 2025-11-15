@@ -47,13 +47,20 @@ body {
 }
 
 .app-header h1 {
-    position: absolute;
-    left: 10px;
-    top: 10px;
     font-size: 0.9rem;
     font-weight: 400;
     color: var(--neutral-medium);
     margin: 0;
+    line-height: 1;
+}
+
+.header-left {
+    position: absolute;
+    left: 10px;
+    top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     z-index: 1000;
 }
 
@@ -68,7 +75,7 @@ body {
 .header-right {
     position: absolute;
     right: 10px;
-    top: 10px;
+    top: 20px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -76,8 +83,9 @@ body {
 }
 
 .editor-toggle-label {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: var(--neutral-medium);
+    line-height: 1;
 }
 
 .toggle-switch {
@@ -148,7 +156,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-top: 30px;
+    padding-top: 47px;
 }
 
 /* Toolbar */
@@ -237,7 +245,7 @@ body {
 }
 
 .repl-pane {
-    flex: 0 0 500px;
+    flex: 1;
     min-width: 300px;
     background-color: var(--bg-subdued);
     display: flex;
@@ -259,15 +267,31 @@ body {
     border-bottom: 1px solid var(--neutral-trim);
     padding: 8px 12px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 8px;
     flex-shrink: 0;
 }
 
-.repl-status {
+.repl-header-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.repl-header-bottom {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.repl-status-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: var(--neutral-trim);
+    border-radius: 12px;
+    padding: 6px 12px;
 }
 
 .repl-status-indicator {
@@ -275,6 +299,7 @@ body {
     height: 8px;
     border-radius: 50%;
     background-color: var(--neutral-medium);
+    flex-shrink: 0;
 }
 
 .repl-status-indicator.connected {
@@ -283,15 +308,11 @@ body {
 
 .repl-status-text {
     font-size: 0.85rem;
-    color: var(--neutral-medium);
+    color: var(--neutral-heavy);
+    white-space: nowrap;
 }
 
-.repl-controls {
-    display: flex;
-    gap: 8px;
-}
-
-.repl-control-btn {
+.repl-connection-btn {
     background: none;
     border: none;
     color: var(--interactive-medium);
@@ -302,13 +323,8 @@ body {
     transition: color 0.2s;
 }
 
-.repl-control-btn:hover:not(:disabled) {
+.repl-connection-btn:hover {
     color: var(--interactive-selected);
-}
-
-.repl-control-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
 }
 
 /* REPL Content */
