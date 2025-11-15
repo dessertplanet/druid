@@ -78,7 +78,7 @@ body {
     top: 20px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     z-index: 1000;
 }
 
@@ -86,6 +86,7 @@ body {
     font-size: 0.9rem;
     color: var(--neutral-medium);
     line-height: 1;
+    margin-left: 12px;
 }
 
 .toggle-switch {
@@ -347,6 +348,16 @@ body {
     word-wrap: break-word;
     color: var(--neutral-heavy);
     background-color: var(--bg-subdued);
+}
+
+.repl-output a {
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.repl-output a:hover {
+    color: var(--interactive-selected);
 }
 
 .repl-input-container {

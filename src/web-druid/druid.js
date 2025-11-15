@@ -186,6 +186,9 @@ class DruidApp {
             splitHandle: document.getElementById('splitHandle'),
             replPane: document.getElementById('replPane'),
             
+            // Script reference
+            scriptReferenceBtn: document.getElementById('scriptReferenceBtn'),
+            
             // File input
             fileInput: document.getElementById('fileInput'),
             
@@ -244,6 +247,11 @@ class DruidApp {
         // REPL actions
         this.elements.helpBtn.addEventListener('click', () => this.showHelp());
         this.elements.clearBtn.addEventListener('click', () => this.clearOutput());
+        
+        // Script reference
+        this.elements.scriptReferenceBtn.addEventListener('click', () => {
+            window.open('https://monome.org/docs/crow/reference', '_blank');
+        });
 
         // Modals
         this.elements.closeWarning.addEventListener('click', () => {
@@ -1124,7 +1132,15 @@ class DruidApp {
     }
 
     outputText(text) {
-        this.elements.output.textContent += text;
+        const textNode = document.createTextNode(text);
+        this.elements.output.appendChild(textNode);
+        this.elements.output.scrollTop = this.elements.output.scrollHeight;
+    }
+    
+    outputHTML(html) {
+        const span = document.createElement('span');
+        span.innerHTML = html;
+        this.elements.output.appendChild(span);
         this.elements.output.scrollTop = this.elements.output.scrollHeight;
     }
 
@@ -1134,13 +1150,18 @@ class DruidApp {
 
     showHelp() {
         this.outputLine('');
-        this.outputLine(' h            this menu');
-        this.outputLine(' r            runs previous script that was run with r <filename>');
-        this.outputLine(' u            uploads \'sketch.lua\'');
-        this.outputLine(' r <filename> run <filename>');
-        this.outputLine(' u <filename> upload <filename>');
-        this.outputLine(' p            print current userscript');
-        this.outputLine(' q            quit');
+        this.outputLine(' crow commands:');
+        this.outputLine(' ^^i          print identity');
+        this.outputLine(' ^^v          print version');
+        this.outputLine(' ^^p          print current userscript');
+        this.outputLine(' ^^r          restart crow');
+        this.outputLine(' ^^k          kill running script');
+        this.outputLine(' ^^c          clear userscript from flash');
+        this.outputLine(' ^^b          enter bootloader mode');
+        this.outputLine('');
+        this.outputHTML(' crow script reference: <a href="https://monome.org/docs/crow/reference" target="_blank">https://monome.org/docs/crow/reference</a>\n');
+        this.outputLine('');
+        this.outputHTML(' blackbird addendum: <a href="https://github.com/TomWhitwell/Workshop_Computer/tree/main/41_Blackbird" target="_blank">https://github.com/TomWhitwell/Workshop_Computer/tree/main/41_Blackbird</a>\n');
         this.outputLine('');
     }
 
