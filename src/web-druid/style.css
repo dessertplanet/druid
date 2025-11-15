@@ -363,19 +363,24 @@ body {
 .repl-input-container {
     flex: 0 0 auto;
     display: flex;
-    align-items: flex-start;
-    padding: 8px 12px;
+    align-items: stretch;
+    padding: 12px;
     background-color: var(--bg-subdued);
     border-top: 1px solid var(--neutral-trim);
-    gap: 8px;
+    position: relative;
 }
 
-.prompt {
+.repl-input-container::before {
+    content: '>>';
+    position: absolute;
+    left: 20px;
+    top: 22px;
     color: var(--neutral-medium);
     font-weight: bold;
     font-size: 0.95rem;
-    padding-top: 6px;
-    flex-shrink: 0;
+    font-family: monospace;
+    pointer-events: none;
+    z-index: 1;
 }
 
 .repl-input {
@@ -385,11 +390,12 @@ body {
     color: var(--neutral-heavy);
     font-family: monospace;
     font-size: 0.95rem;
-    padding: 6px 8px;
+    padding: 8px 8px 8px 32px;
     outline: none;
     resize: vertical;
-    min-height: 32px;
-    max-height: 200px;
+    min-height: 80px;
+    max-height: 300px;
+    line-height: 1.4;
 }
 
 .repl-input:focus {

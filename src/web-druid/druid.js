@@ -145,6 +145,11 @@ class DruidApp {
         this.scriptModified = false;
         this.currentFile = null;
         
+        // Command history for REPL
+        this.commandHistory = [];
+        this.historyIndex = -1;
+        this.currentInput = '';
+        
         this.initializeUI();
         this.checkBrowserSupport();
         this.setupEventListeners();
@@ -906,7 +911,34 @@ class DruidApp {
     }
 
     async handleReplInput(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        // Handle arrow key navigation through command history
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (this.commandHistory.length === 0) return;
+            
+            // Save current input if we're not already browsing history
+            if (this.historyIndex === -1) {
+                this.currentInput = this.elements.replInput.value;
+            }
+            
+            // Navigate up in history (older commands)
+            if (this.historyIndex < this.commandHistory.length - 1) {
+                this.historyIndex++;
+                this.elements.replInput.value = this.commandHistory[this.commandHistory.length - 1 - this.historyIndex];
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (this.historyIndex === -1) return;
+            
+            // Navigate down in history (newer commands)
+            this.historyIndex--;
+            if (this.historyIndex === -1) {
+                // Restore the current input that was being typed
+                this.elements.replInput.value = this.currentInput;
+            } else {
+                this.elements.replInput.value = this.commandHistory[this.commandHistory.length - 1 - this.historyIndex];
+            }
+        } else if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             const code = this.elements.replInput.value.trim();
             if (code && this.crow.isConnected) {
@@ -917,10 +949,25 @@ class DruidApp {
                         await this.delay(1);
                     }
                     this.outputLine(`>> ${code}`);
+                    
+                    // Add to command history (avoid duplicates of the last command)
+                    if (this.commandHistory.length === 0 || this.commandHistory[this.commandHistory.length - 1] !== code) {
+                        this.commandHistory.push(code);
+                    }
+                    
+                    // Reset history navigation
+                    this.historyIndex = -1;
+                    this.currentInput = '';
                     this.elements.replInput.value = '';
                 } catch (error) {
                     this.outputLine(`Error: ${error.message}`);
                 }
+            }
+        } else {
+            // Reset history index when user starts typing
+            if (this.historyIndex !== -1) {
+                this.historyIndex = -1;
+                this.currentInput = '';
             }
         }
     }
