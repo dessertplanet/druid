@@ -1161,7 +1161,7 @@ class DruidApp {
         this.outputLine('');
         this.outputHTML(' crow script reference: <a href="https://monome.org/docs/crow/reference" target="_blank">https://monome.org/docs/crow/reference</a>\n');
         this.outputLine('');
-        this.outputHTML(' blackbird addendum: <a href="https://github.com/TomWhitwell/Workshop_Computer/tree/main/41_Blackbird" target="_blank">https://github.com/TomWhitwell/Workshop_Computer/tree/main/41_Blackbird</a>\n');
+        this.outputHTML(' blackbird addendum: <a href="https://github.com/TomWhitwell/Workshop_Computer/tree/main/releases/41_blackbird/README.md" target="_blank">https://github.com/TomWhitwell/Workshop_Computer/tree/main/releases/41_blackbird/README.md</a>\n');
         this.outputLine('');
     }
 
