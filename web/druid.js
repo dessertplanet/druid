@@ -303,6 +303,32 @@ class DruidApp {
                 this.validateLuaSyntax();
             });
 
+            // Add context menu action to send selection to crow
+            this.editor.addAction({
+                id: 'send-to-crow',
+                label: 'Send Selection to Crow',
+                contextMenuGroupId: 'navigation',
+                contextMenuOrder: 1.5,
+                keybindings: [
+                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter
+                ],
+                run: (ed) => {
+                    const selection = ed.getSelection();
+                    const selectedText = ed.getModel().getValueInRange(selection);
+                    
+                    if (selectedText.trim()) {
+                        this.sendToCrow(selectedText);
+                    } else {
+                        // If no selection, send current line
+                        const lineNumber = selection.startLineNumber;
+                        const lineContent = ed.getModel().getLineContent(lineNumber);
+                        if (lineContent.trim()) {
+                            this.sendToCrow(lineContent);
+                        }
+                    }
+                }
+            });
+
             // Initial validation
             this.validateLuaSyntax();
         });
@@ -1299,6 +1325,24 @@ class DruidApp {
             this.outputLine(`Uploaded ${file.name}\\n`);
         } catch (error) {
             this.outputLine(`Upload error: ${error.message}\\n`);
+        }
+    }
+
+    async sendToCrow(code) {
+        if (!this.crow.isConnected) {
+            this.outputLine('Error: Not connected to crow');
+            return;
+        }
+
+        try {
+            const lines = code.split('\n');
+            for (const line of lines) {
+                await this.crow.writeLine(line);
+                await this.delay(1);
+            }
+            this.outputLine(`>> ${code.replace(/\n/g, '\n>> ')}`);
+        } catch (error) {
+            this.outputLine(`Error: ${error.message}`);
         }
     }
 
