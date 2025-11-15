@@ -525,6 +525,28 @@ body {
     color: var(--interactive-selected);
 }
 
+.modal-info {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background-color: var(--bg-subdued);
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.info-line {
+    color: var(--neutral-medium);
+    margin: 0.25rem 0;
+}
+
+.info-line a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.info-line a:hover {
+    text-decoration: underline;
+}
+
 .modal-search {
     margin-bottom: 1rem;
 }
@@ -558,9 +580,23 @@ body {
 
 .bowery-list {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: scroll;
     border: 1px solid var(--neutral-trim);
     border-radius: 4px;
+}
+
+.bowery-list::-webkit-scrollbar {
+    -webkit-appearance: none;
+    width: 10px;
+}
+
+.bowery-list::-webkit-scrollbar-thumb {
+    border-radius: 5px;
+    background-color: var(--neutral-medium);
+}
+
+.bowery-list::-webkit-scrollbar-track {
+    background-color: var(--bg-subdued);
 }
 
 .bowery-item {

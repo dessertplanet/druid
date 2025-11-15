@@ -87,7 +87,7 @@ class CrowConnection {
                 }
                 
                 if (this.onConnectionChange) {
-                    this.onConnectionChange(false, 'device disconnected - please reconnect' );
+                    this.onConnectionChange(false, 'device disconnected. please reconnect > ' );
                 }
             }
         }
@@ -194,6 +194,7 @@ class DruidApp {
             closeWarning: document.getElementById('closeWarning'),
             boweryModal: document.getElementById('boweryModal'),
             closeBowery: document.getElementById('closeBowery'),
+            boweryAction: document.getElementById('boweryAction'),
             bowerySearch: document.getElementById('bowerySearch'),
             boweryLoading: document.getElementById('boweryLoading'),
             boweryError: document.getElementById('boweryError'),
@@ -820,202 +821,43 @@ class DruidApp {
 
     validateLuaSyntax() {
         if (!this.editor) return;
+        
+        // Check if luaparse is available
+        if (typeof luaparse === 'undefined') {
+            console.warn('luaparse library not loaded - syntax validation disabled');
+            return;
+        }
 
         const model = this.editor.getModel();
         const code = model.getValue();
         const markers = [];
 
-        // Basic Lua syntax validation
-        const lines = code.split('\n');
-        const blockStack = [];
-        const braceStack = [];
-        const parenStack = [];
-        const bracketStack = [];
-        
-        // Track block keywords
-        const blockStarts = ['function', 'if', 'while', 'for', 'do', 'repeat'];
-        const blockEnds = ['end', 'until'];
-        
-        lines.forEach((line, lineNum) => {
-            const trimmed = line.trim();
-            
-            // Check for common syntax errors
-            
-            // Unmatched quotes
-            const singleQuotes = (line.match(/(?<!\\)'/g) || []).length;
-            const doubleQuotes = (line.match(/(?<!\\)"/g) || []).length;
-            
-            if (singleQuotes % 2 !== 0) {
+        // Use luaparse for proper Lua syntax validation
+        try {
+            luaparse.parse(code, {
+                locations: true,
+                ranges: true,
+                luaVersion: '5.3'
+            });
+            // If parsing succeeds, clear any previous markers
+            monaco.editor.setModelMarkers(model, 'lua', []);
+        } catch (error) {
+            // Parse error - extract line/column info
+            if (error.line !== undefined) {
+                const column = error.column !== undefined ? error.column : 1;
                 markers.push({
                     severity: monaco.MarkerSeverity.Error,
-                    startLineNumber: lineNum + 1,
-                    startColumn: line.indexOf("'") + 1,
-                    endLineNumber: lineNum + 1,
-                    endColumn: line.length + 1,
-                    message: 'Unmatched single quote'
+                    startLineNumber: error.line,
+                    startColumn: column,
+                    endLineNumber: error.line,
+                    endColumn: column + 1,
+                    message: error.message || 'Syntax error'
                 });
+                monaco.editor.setModelMarkers(model, 'lua', markers);
+            } else {
+                console.error('Parse error without location info:', error);
             }
-            
-            if (doubleQuotes % 2 !== 0) {
-                markers.push({
-                    severity: monaco.MarkerSeverity.Error,
-                    startLineNumber: lineNum + 1,
-                    startColumn: line.indexOf('"') + 1,
-                    endLineNumber: lineNum + 1,
-                    endColumn: line.length + 1,
-                    message: 'Unmatched double quote'
-                });
-            }
-            
-            // Track braces, parens, and brackets across multiple lines
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                
-                if (char === '{') {
-                    braceStack.push({ line: lineNum + 1, col: i + 1 });
-                } else if (char === '}') {
-                    if (braceStack.length === 0) {
-                        markers.push({
-                            severity: monaco.MarkerSeverity.Error,
-                            startLineNumber: lineNum + 1,
-                            startColumn: i + 1,
-                            endLineNumber: lineNum + 1,
-                            endColumn: i + 2,
-                            message: 'Unmatched closing brace'
-                        });
-                    } else {
-                        braceStack.pop();
-                    }
-                } else if (char === '(') {
-                    parenStack.push({ line: lineNum + 1, col: i + 1 });
-                } else if (char === ')') {
-                    if (parenStack.length === 0) {
-                        markers.push({
-                            severity: monaco.MarkerSeverity.Error,
-                            startLineNumber: lineNum + 1,
-                            startColumn: i + 1,
-                            endLineNumber: lineNum + 1,
-                            endColumn: i + 2,
-                            message: 'Unmatched closing parenthesis'
-                        });
-                    } else {
-                        parenStack.pop();
-                    }
-                } else if (char === '[') {
-                    bracketStack.push({ line: lineNum + 1, col: i + 1 });
-                } else if (char === ']') {
-                    if (bracketStack.length === 0) {
-                        markers.push({
-                            severity: monaco.MarkerSeverity.Error,
-                            startLineNumber: lineNum + 1,
-                            startColumn: i + 1,
-                            endLineNumber: lineNum + 1,
-                            endColumn: i + 2,
-                            message: 'Unmatched closing bracket'
-                        });
-                    } else {
-                        bracketStack.pop();
-                    }
-                }
-            }
-            
-            // Track block structure
-            const words = trimmed.split(/\s+/);
-            const firstWord = words[0];
-            
-            if (blockStarts.includes(firstWord)) {
-                blockStack.push({ keyword: firstWord, line: lineNum + 1 });
-            } else if (firstWord === 'end') {
-                if (blockStack.length === 0) {
-                    markers.push({
-                        severity: monaco.MarkerSeverity.Error,
-                        startLineNumber: lineNum + 1,
-                        startColumn: 1,
-                        endLineNumber: lineNum + 1,
-                        endColumn: 4,
-                        message: 'Unexpected "end" without matching block start'
-                    });
-                } else {
-                    blockStack.pop();
-                }
-            } else if (firstWord === 'until') {
-                const last = blockStack[blockStack.length - 1];
-                if (!last || last.keyword !== 'repeat') {
-                    markers.push({
-                        severity: monaco.MarkerSeverity.Error,
-                        startLineNumber: lineNum + 1,
-                        startColumn: 1,
-                        endLineNumber: lineNum + 1,
-                        endColumn: 6,
-                        message: '"until" without matching "repeat"'
-                    });
-                } else {
-                    blockStack.pop();
-                }
-            }
-            
-            // Check for 'then' after 'if' or 'elseif'
-            if ((firstWord === 'if' || firstWord === 'elseif') && !trimmed.includes('then')) {
-                markers.push({
-                    severity: monaco.MarkerSeverity.Error,
-                    startLineNumber: lineNum + 1,
-                    startColumn: 1,
-                    endLineNumber: lineNum + 1,
-                    endColumn: line.length + 1,
-                    message: `"${firstWord}" statement missing "then"`
-                });
-            }
-        });
-        
-        // Check for unclosed blocks
-        blockStack.forEach(block => {
-            markers.push({
-                severity: monaco.MarkerSeverity.Error,
-                startLineNumber: block.line,
-                startColumn: 1,
-                endLineNumber: block.line,
-                endColumn: 10,
-                message: `Unclosed "${block.keyword}" block`
-            });
-        });
-        
-        // Check for unclosed braces
-        braceStack.forEach(brace => {
-            markers.push({
-                severity: monaco.MarkerSeverity.Error,
-                startLineNumber: brace.line,
-                startColumn: brace.col,
-                endLineNumber: brace.line,
-                endColumn: brace.col + 1,
-                message: 'Unclosed brace'
-            });
-        });
-        
-        // Check for unclosed parentheses
-        parenStack.forEach(paren => {
-            markers.push({
-                severity: monaco.MarkerSeverity.Error,
-                startLineNumber: paren.line,
-                startColumn: paren.col,
-                endLineNumber: paren.line,
-                endColumn: paren.col + 1,
-                message: 'Unclosed parenthesis'
-            });
-        });
-        
-        // Check for unclosed brackets
-        bracketStack.forEach(bracket => {
-            markers.push({
-                severity: monaco.MarkerSeverity.Error,
-                startLineNumber: bracket.line,
-                startColumn: bracket.col,
-                endLineNumber: bracket.line,
-                endColumn: bracket.col + 1,
-                message: 'Unclosed bracket'
-            });
-        });
-
-        monaco.editor.setModelMarkers(model, 'lua', markers);
+        }
     }
 
     setupSplitPane() {
@@ -1421,6 +1263,13 @@ class DruidApp {
         this.elements.boweryList.style.display = 'none';
         this.elements.bowerySearch.value = '';
         
+        // Update action text based on editor visibility
+        if (this.editorVisible) {
+            this.elements.boweryAction.textContent = 'Select a script to load it into the editor';
+        } else {
+            this.elements.boweryAction.textContent = 'Select a script to upload it directly to crow';
+        }
+        
         try {
             // Fetch the repo tree from GitHub API
             const response = await fetch('https://api.github.com/repos/monome/bowery/git/trees/main?recursive=1');
@@ -1431,9 +1280,14 @@ class DruidApp {
             
             const data = await response.json();
             
-            // Filter for .lua files only
+            // Filter for .lua files only, excluding snippets and legacy directories
             this.boweryScripts = data.tree
-                .filter(item => item.type === 'blob' && item.path.endsWith('.lua'))
+                .filter(item => 
+                    item.type === 'blob' && 
+                    item.path.endsWith('.lua') &&
+                    !item.path.startsWith('snippets/') &&
+                    !item.path.startsWith('legacy/')
+                )
                 .map(item => ({
                     name: item.path.split('/').pop(),
                     path: item.path,

@@ -88,6 +88,10 @@
                 <h2>Browse bowery scripts</h2>
                 <button id="closeBowery" class="modal-close">&times;</button>
             </div>
+            <div class="modal-info">
+                <div id="boweryAction" class="info-line"></div>
+                <div class="info-line">Scripts fetched from <a href="https://github.com/monome/bowery" target="_blank">github.com/monome/bowery</a></div>
+            </div>
             <div class="modal-search">
                 <input type="text" id="bowerySearch" placeholder="Search scripts..." class="search-input">
             </div>
@@ -100,6 +104,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"
             integrity="sha384-UcP5/iVWyRzIhnVjcB2o9W1eoYKL5fAhHTRzvFZg8ctOsoAoDeBQyQuyIk+BJ/nh"
             crossorigin="anonymous"></script>
+    <script>
+        // Temporarily disable AMD to prevent luaparse from registering as a module
+        var define_backup = window.define;
+        window.define = undefined;
+    </script>
+    <script src="https://fstirlitz.github.io/luaparse/luaparse.js"
+            integrity="sha384-nZWrVLuK/PbNpO/y2j3aWnW6br7zI0jAOiOm5tIL7W8OV58RYFu2C2VMumLaAhB0"
+            crossorigin="anonymous"></script>
+    <script>
+        // Restore AMD after luaparse has loaded
+        window.define = define_backup;
+    </script>
     <script src="druid.js"></script>
 </body>
 </html>
