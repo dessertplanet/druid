@@ -62,8 +62,15 @@
                         <div class="repl-actions">
                             <button id="helpBtn" class="repl-action-btn">help</button>
                             <button id="clearBtn" class="repl-action-btn">clear</button>
+                            <div class="repl-actions-spacer"></div>
+                            <span class="repl-autocomplete-label">auto-complete</span>
+                            <label class="toggle-switch repl-toggle">
+                                <input type="checkbox" id="toggleReplAutocomplete" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
                         <div class="repl-input-container">
+                            <div id="replEditorContainer" class="repl-editor-container" style="display: none;"></div>
                             <textarea id="replInput" class="repl-input" placeholder="send word to the bird" disabled></textarea>
                         </div>
                     </div>

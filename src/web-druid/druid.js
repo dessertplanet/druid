@@ -141,6 +141,8 @@ class DruidApp {
     constructor() {
         this.crow = new CrowConnection();
         this.editor = null;
+        this.replEditor = null;
+        this.replAutocompleteEnabled = true;
         this.scriptName = 'untitled.lua';
         this.scriptModified = false;
         this.currentFile = null;
@@ -181,6 +183,9 @@ class DruidApp {
             editorContainer: document.getElementById('editor'),
             output: document.getElementById('output'),
             replInput: document.getElementById('replInput'),
+            replEditorContainer: document.getElementById('replEditorContainer'),
+            replInputContainer: document.querySelector('.repl-input-container'),
+            toggleReplAutocomplete: document.getElementById('toggleReplAutocomplete'),
             helpBtn: document.getElementById('helpBtn'),
             clearBtn: document.getElementById('clearBtn'),
             
@@ -227,6 +232,9 @@ class DruidApp {
     setupEventListeners() {
         // Editor toggle
         this.elements.toggleEditorBtn.addEventListener('change', (e) => this.toggleEditor(e.target.checked));
+
+        // REPL autocomplete toggle
+        this.elements.toggleReplAutocomplete.addEventListener('change', (e) => this.toggleReplAutocomplete(e.target.checked));
 
         // Connection
         this.elements.connectionBtn.addEventListener('click', () => this.toggleConnection());
@@ -371,7 +379,239 @@ class DruidApp {
 
             // Initial validation
             this.validateLuaSyntax();
+            
+            // Initialize REPL editor after main editor is ready
+            this.initializeReplEditor();
         });
+    }
+
+    initializeReplEditor() {
+        // Create Monaco editor for REPL input
+        this.replEditor = monaco.editor.create(this.elements.replEditorContainer, {
+            value: '',
+            language: 'lua',
+            theme: 'vs-dark',
+            fontSize: 14,
+            fontFamily: 'monospace',
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            lineNumbers: 'off',
+            folding: false,
+            renderWhitespace: 'none',
+            tabSize: 2,
+            matchBrackets: 'never',
+            scrollbar: {
+                vertical: 'auto',
+                horizontal: 'auto',
+                verticalScrollbarSize: 8,
+                horizontalScrollbarSize: 8
+            },
+            wordWrap: 'on',
+            lineDecorationsWidth: 0,
+            lineNumbersMinChars: 0,
+            glyphMargin: false,
+            overviewRulerLanes: 0,
+            hideCursorInOverviewRuler: true,
+            overviewRulerBorder: false,
+            suggest: {
+                showKeywords: true,
+                showSnippets: true,
+                selectionMode: 'never'  // Don't pre-select suggestions
+            },
+            quickSuggestions: true,
+            acceptSuggestionOnEnter: 'on'
+        });
+
+        // Handle Enter key - send command ONLY when suggestion widget is not visible
+        this.replEditor.addCommand(monaco.KeyCode.Enter, () => {
+            if (!this.replAutocompleteEnabled) return;
+            
+            const code = this.replEditor.getValue().trim();
+            if (code && this.crow.isConnected) {
+                this.sendReplCommand(code);
+            }
+        }, '!suggestWidgetVisible');
+
+        // Handle Shift+Enter for new line always
+        this.replEditor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => {
+            if (!this.replAutocompleteEnabled) return;
+            
+            const position = this.replEditor.getPosition();
+            this.replEditor.executeEdits('', [{
+                range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                text: '\n'
+            }]);
+        });
+
+        // Handle Up arrow for history - only when NOT in suggestion widget
+        this.replEditor.addCommand(monaco.KeyCode.UpArrow, () => {
+            if (!this.replAutocompleteEnabled) return;
+            
+            const position = this.replEditor.getPosition();
+            const model = this.replEditor.getModel();
+            // Navigate history if cursor is on first line and at start of content
+            if (position.lineNumber === 1 && position.column === 1) {
+                this.navigateReplHistory('up');
+            } else {
+                // Default behavior - move cursor up
+                this.replEditor.trigger('keyboard', 'cursorUp', {});
+            }
+        }, '!suggestWidgetVisible');
+
+        // Handle Down arrow for history - only when NOT in suggestion widget  
+        this.replEditor.addCommand(monaco.KeyCode.DownArrow, () => {
+            if (!this.replAutocompleteEnabled) return;
+            
+            const model = this.replEditor.getModel();
+            const position = this.replEditor.getPosition();
+            const lastLine = model.getLineCount();
+            const lastLineLength = model.getLineLength(lastLine);
+            // Navigate history if cursor is on last line and at end of content
+            if (position.lineNumber === lastLine && position.column === lastLineLength + 1) {
+                this.navigateReplHistory('down');
+            } else {
+                // Default behavior - move cursor down
+                this.replEditor.trigger('keyboard', 'cursorDown', {});
+            }
+        }, '!suggestWidgetVisible');
+
+        // Validate syntax as user types
+        this.replEditor.onDidChangeModelContent(() => {
+            if (this.replAutocompleteEnabled) {
+                this.validateReplSyntax();
+                // Reset history index when user modifies content
+                if (this.historyIndex !== -1) {
+                    this.historyIndex = -1;
+                }
+            }
+        });
+
+        // Start with autocomplete enabled
+        this.toggleReplAutocomplete(true);
+    }
+
+    validateReplSyntax() {
+        if (!this.replEditor) return;
+        
+        const model = this.replEditor.getModel();
+        const code = model.getValue();
+        
+        if (!code.trim()) {
+            monaco.editor.setModelMarkers(model, 'lua', []);
+            return;
+        }
+
+        try {
+            luaparse.parse(code, { 
+                wait: false,
+                comments: false,
+                scope: false,
+                locations: true,
+                ranges: true
+            });
+            // Clear any previous error markers
+            monaco.editor.setModelMarkers(model, 'lua', []);
+        } catch (error) {
+            if (error.line && error.column) {
+                const markers = [{
+                    severity: monaco.MarkerSeverity.Error,
+                    startLineNumber: error.line,
+                    startColumn: error.column,
+                    endLineNumber: error.line,
+                    endColumn: error.column + 1,
+                    message: error.message
+                }];
+                monaco.editor.setModelMarkers(model, 'lua', markers);
+            }
+        }
+    }
+
+    navigateReplHistory(direction) {
+        if (direction === 'up') {
+            if (this.commandHistory.length === 0) return;
+            
+            if (this.historyIndex === -1) {
+                this.currentInput = this.replEditor.getValue();
+            }
+            
+            if (this.historyIndex < this.commandHistory.length - 1) {
+                this.historyIndex++;
+                this.replEditor.setValue(this.commandHistory[this.commandHistory.length - 1 - this.historyIndex]);
+            }
+        } else if (direction === 'down') {
+            if (this.historyIndex === -1) return;
+            
+            this.historyIndex--;
+            if (this.historyIndex === -1) {
+                this.replEditor.setValue(this.currentInput);
+            } else {
+                this.replEditor.setValue(this.commandHistory[this.commandHistory.length - 1 - this.historyIndex]);
+            }
+        }
+    }
+
+    async sendReplCommand(code) {
+        // Output the sent command BEFORE sending to ensure it appears first
+        this.outputLine(`>> ${code}`);
+        
+        try {
+            const lines = code.split('\n');
+            for (const line of lines) {
+                await this.crow.writeLine(line);
+                await this.delay(1);
+            }
+            
+            // Add to command history (avoid duplicates of the last command)
+            if (this.commandHistory.length === 0 || this.commandHistory[this.commandHistory.length - 1] !== code) {
+                this.commandHistory.push(code);
+            }
+            
+            // Reset history navigation
+            this.historyIndex = -1;
+            this.currentInput = '';
+            this.replEditor.setValue('');
+        } catch (error) {
+            this.outputLine(`Error: ${error.message}`);
+        }
+    }
+
+    toggleReplAutocomplete(enabled) {
+        this.replAutocompleteEnabled = enabled;
+        
+        if (enabled) {
+            // Show Monaco editor, hide textarea
+            this.elements.replEditorContainer.style.display = 'block';
+            this.elements.replInput.style.display = 'none';
+            this.elements.replInputContainer.classList.add('editor-mode');
+            
+            // Transfer any content from textarea to editor
+            const textareaValue = this.elements.replInput.value;
+            if (textareaValue && !this.replEditor.getValue()) {
+                this.replEditor.setValue(textareaValue);
+            }
+            
+            // Focus the editor
+            if (this.crow.isConnected) {
+                this.replEditor.focus();
+            }
+        } else {
+            // Show textarea, hide Monaco editor
+            this.elements.replEditorContainer.style.display = 'none';
+            this.elements.replInput.style.display = 'block';
+            this.elements.replInputContainer.classList.remove('editor-mode');
+            
+            // Transfer any content from editor to textarea
+            const editorValue = this.replEditor.getValue();
+            if (editorValue && !this.elements.replInput.value) {
+                this.elements.replInput.value = editorValue;
+            }
+            
+            // Focus the textarea
+            if (this.crow.isConnected) {
+                this.elements.replInput.focus();
+            }
+        }
     }
 
     registerCrowCompletions() {
@@ -1011,11 +1251,23 @@ class DruidApp {
         this.elements.runBtn.disabled = !connected;
         this.elements.uploadBtn.disabled = !connected;
         this.elements.replInput.disabled = !connected;
+        
+        // Enable/disable REPL editor
+        if (this.replEditor) {
+            this.replEditor.updateOptions({ readOnly: !connected });
+        }
 
         if (connected) {
             this.elements.connectionBtn.textContent = 'disconnect';
             this.elements.replStatusIndicator.classList.add('connected');
             this.elements.replStatusText.textContent = 'connected';
+            
+            // Focus the appropriate input
+            if (this.replAutocompleteEnabled && this.replEditor) {
+                this.replEditor.focus();
+            } else {
+                this.elements.replInput.focus();
+            }
         } else {
             this.elements.connectionBtn.textContent = 'connect';
             this.elements.replStatusIndicator.classList.remove('connected');
