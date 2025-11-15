@@ -484,6 +484,118 @@ body {
     opacity: 0.8;
 }
 
+/* Bowery modal */
+.bowery-modal {
+    width: 600px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--neutral-heavy);
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.modal-close:hover {
+    color: var(--interactive-selected);
+}
+
+.modal-search {
+    margin-bottom: 1rem;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--bg-subdued);
+    border: 1px solid var(--neutral-trim);
+    color: var(--neutral-heavy);
+    font-family: monospace;
+    font-size: 0.9rem;
+    border-radius: 4px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.modal-loading,
+.modal-error {
+    text-align: center;
+    padding: 2rem;
+    color: var(--neutral-medium);
+}
+
+.modal-error {
+    color: #ff6b6b;
+}
+
+.bowery-list {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--neutral-trim);
+    border-radius: 4px;
+}
+
+.bowery-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--neutral-trim);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.bowery-item:last-child {
+    border-bottom: none;
+}
+
+.bowery-item:hover {
+    background-color: var(--bg-subdued);
+}
+
+.bowery-item-name {
+    font-weight: bold;
+    color: var(--neutral-heavy);
+}
+
+.bowery-item-path {
+    font-size: 0.8rem;
+    color: var(--neutral-medium);
+}
+
+.bowery-item-size {
+    font-size: 0.75rem;
+    color: var(--neutral-medium);
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .split-container {
@@ -513,6 +625,10 @@ body {
 
     .toolbar {
         flex-wrap: wrap;
+    }
+    
+    .bowery-modal {
+        width: 95vw;
     }
 }
 

@@ -87,7 +87,7 @@ class CrowConnection {
                 }
                 
                 if (this.onConnectionChange) {
-                    this.onConnectionChange(false, 'device disconnected - click connect at the top to reconnect');
+                    this.onConnectionChange(false, 'device disconnected - please reconnect' );
                 }
             }
         }
@@ -163,6 +163,7 @@ class DruidApp {
             uploadBtn: document.getElementById('uploadBtn'),
             newBtn: document.getElementById('newBtn'),
             openBtn: document.getElementById('openBtn'),
+            boweryBtn: document.getElementById('boweryBtn'),
             saveBtn: document.getElementById('saveBtn'),
             renameBtn: document.getElementById('renameBtn'),
             
@@ -188,9 +189,15 @@ class DruidApp {
             // File input
             fileInput: document.getElementById('fileInput'),
             
-            // Modal
+            // Modals
             browserWarning: document.getElementById('browserWarning'),
-            closeWarning: document.getElementById('closeWarning')
+            closeWarning: document.getElementById('closeWarning'),
+            boweryModal: document.getElementById('boweryModal'),
+            closeBowery: document.getElementById('closeBowery'),
+            bowerySearch: document.getElementById('bowerySearch'),
+            boweryLoading: document.getElementById('boweryLoading'),
+            boweryError: document.getElementById('boweryError'),
+            boweryList: document.getElementById('boweryList')
         };
 
         this.outputLine('//// welcome. connect to crow or blackbird to begin.');
@@ -217,6 +224,7 @@ class DruidApp {
         this.elements.uploadBtn.addEventListener('click', () => this.uploadScript());
         this.elements.newBtn.addEventListener('click', () => this.newScript());
         this.elements.openBtn.addEventListener('click', () => this.openScript());
+        this.elements.boweryBtn.addEventListener('click', () => this.openBoweryBrowser());
         this.elements.saveBtn.addEventListener('click', () => this.saveScript());
         this.elements.renameBtn.addEventListener('click', () => this.renameScript());
 
@@ -230,9 +238,17 @@ class DruidApp {
         this.elements.helpBtn.addEventListener('click', () => this.showHelp());
         this.elements.clearBtn.addEventListener('click', () => this.clearOutput());
 
-        // Modal
+        // Modals
         this.elements.closeWarning.addEventListener('click', () => {
             this.elements.browserWarning.style.display = 'none';
+        });
+        
+        this.elements.closeBowery.addEventListener('click', () => {
+            this.elements.boweryModal.style.display = 'none';
+        });
+        
+        this.elements.bowerySearch.addEventListener('input', (e) => {
+            this.filterBoweryScripts(e.target.value);
         });
 
         // Crow callbacks
@@ -811,7 +827,10 @@ class DruidApp {
 
         // Basic Lua syntax validation
         const lines = code.split('\n');
-        const stack = [];
+        const blockStack = [];
+        const braceStack = [];
+        const parenStack = [];
+        const bracketStack = [];
         
         // Track block keywords
         const blockStarts = ['function', 'if', 'while', 'for', 'do', 'repeat'];
@@ -848,45 +867,56 @@ class DruidApp {
                 });
             }
             
-            // Check for unbalanced parentheses on the line
-            const openParens = (line.match(/\(/g) || []).length;
-            const closeParens = (line.match(/\)/g) || []).length;
-            const openBrackets = (line.match(/\[/g) || []).length;
-            const closeBrackets = (line.match(/\]/g) || []).length;
-            const openBraces = (line.match(/\{/g) || []).length;
-            const closeBraces = (line.match(/\}/g) || []).length;
-            
-            if (openParens !== closeParens) {
-                markers.push({
-                    severity: monaco.MarkerSeverity.Warning,
-                    startLineNumber: lineNum + 1,
-                    startColumn: 1,
-                    endLineNumber: lineNum + 1,
-                    endColumn: line.length + 1,
-                    message: 'Unbalanced parentheses'
-                });
-            }
-            
-            if (openBrackets !== closeBrackets) {
-                markers.push({
-                    severity: monaco.MarkerSeverity.Warning,
-                    startLineNumber: lineNum + 1,
-                    startColumn: 1,
-                    endLineNumber: lineNum + 1,
-                    endColumn: line.length + 1,
-                    message: 'Unbalanced brackets'
-                });
-            }
-            
-            if (openBraces !== closeBraces) {
-                markers.push({
-                    severity: monaco.MarkerSeverity.Warning,
-                    startLineNumber: lineNum + 1,
-                    startColumn: 1,
-                    endLineNumber: lineNum + 1,
-                    endColumn: line.length + 1,
-                    message: 'Unbalanced braces'
-                });
+            // Track braces, parens, and brackets across multiple lines
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '{') {
+                    braceStack.push({ line: lineNum + 1, col: i + 1 });
+                } else if (char === '}') {
+                    if (braceStack.length === 0) {
+                        markers.push({
+                            severity: monaco.MarkerSeverity.Error,
+                            startLineNumber: lineNum + 1,
+                            startColumn: i + 1,
+                            endLineNumber: lineNum + 1,
+                            endColumn: i + 2,
+                            message: 'Unmatched closing brace'
+                        });
+                    } else {
+                        braceStack.pop();
+                    }
+                } else if (char === '(') {
+                    parenStack.push({ line: lineNum + 1, col: i + 1 });
+                } else if (char === ')') {
+                    if (parenStack.length === 0) {
+                        markers.push({
+                            severity: monaco.MarkerSeverity.Error,
+                            startLineNumber: lineNum + 1,
+                            startColumn: i + 1,
+                            endLineNumber: lineNum + 1,
+                            endColumn: i + 2,
+                            message: 'Unmatched closing parenthesis'
+                        });
+                    } else {
+                        parenStack.pop();
+                    }
+                } else if (char === '[') {
+                    bracketStack.push({ line: lineNum + 1, col: i + 1 });
+                } else if (char === ']') {
+                    if (bracketStack.length === 0) {
+                        markers.push({
+                            severity: monaco.MarkerSeverity.Error,
+                            startLineNumber: lineNum + 1,
+                            startColumn: i + 1,
+                            endLineNumber: lineNum + 1,
+                            endColumn: i + 2,
+                            message: 'Unmatched closing bracket'
+                        });
+                    } else {
+                        bracketStack.pop();
+                    }
+                }
             }
             
             // Track block structure
@@ -894,9 +924,9 @@ class DruidApp {
             const firstWord = words[0];
             
             if (blockStarts.includes(firstWord)) {
-                stack.push({ keyword: firstWord, line: lineNum + 1 });
+                blockStack.push({ keyword: firstWord, line: lineNum + 1 });
             } else if (firstWord === 'end') {
-                if (stack.length === 0) {
+                if (blockStack.length === 0) {
                     markers.push({
                         severity: monaco.MarkerSeverity.Error,
                         startLineNumber: lineNum + 1,
@@ -906,10 +936,10 @@ class DruidApp {
                         message: 'Unexpected "end" without matching block start'
                     });
                 } else {
-                    stack.pop();
+                    blockStack.pop();
                 }
             } else if (firstWord === 'until') {
-                const last = stack[stack.length - 1];
+                const last = blockStack[blockStack.length - 1];
                 if (!last || last.keyword !== 'repeat') {
                     markers.push({
                         severity: monaco.MarkerSeverity.Error,
@@ -920,7 +950,7 @@ class DruidApp {
                         message: '"until" without matching "repeat"'
                     });
                 } else {
-                    stack.pop();
+                    blockStack.pop();
                 }
             }
             
@@ -938,7 +968,7 @@ class DruidApp {
         });
         
         // Check for unclosed blocks
-        stack.forEach(block => {
+        blockStack.forEach(block => {
             markers.push({
                 severity: monaco.MarkerSeverity.Error,
                 startLineNumber: block.line,
@@ -946,6 +976,42 @@ class DruidApp {
                 endLineNumber: block.line,
                 endColumn: 10,
                 message: `Unclosed "${block.keyword}" block`
+            });
+        });
+        
+        // Check for unclosed braces
+        braceStack.forEach(brace => {
+            markers.push({
+                severity: monaco.MarkerSeverity.Error,
+                startLineNumber: brace.line,
+                startColumn: brace.col,
+                endLineNumber: brace.line,
+                endColumn: brace.col + 1,
+                message: 'Unclosed brace'
+            });
+        });
+        
+        // Check for unclosed parentheses
+        parenStack.forEach(paren => {
+            markers.push({
+                severity: monaco.MarkerSeverity.Error,
+                startLineNumber: paren.line,
+                startColumn: paren.col,
+                endLineNumber: paren.line,
+                endColumn: paren.col + 1,
+                message: 'Unclosed parenthesis'
+            });
+        });
+        
+        // Check for unclosed brackets
+        bracketStack.forEach(bracket => {
+            markers.push({
+                severity: monaco.MarkerSeverity.Error,
+                startLineNumber: bracket.line,
+                startColumn: bracket.col,
+                endLineNumber: bracket.line,
+                endColumn: bracket.col + 1,
+                message: 'Unclosed bracket'
             });
         });
 
@@ -1179,6 +1245,8 @@ class DruidApp {
     }
 
     toggleEditor(show) {
+        this.editorVisible = show;
+        
         if (show) {
             // Show editor
             this.elements.toolbar.classList.remove('hidden');
@@ -1341,6 +1409,137 @@ class DruidApp {
                 await this.delay(1);
             }
             this.outputLine(`>> ${code.replace(/\n/g, '\n>> ')}`);
+        } catch (error) {
+            this.outputLine(`Error: ${error.message}`);
+        }
+    }
+
+    async openBoweryBrowser() {
+        this.elements.boweryModal.style.display = 'flex';
+        this.elements.boweryLoading.style.display = 'block';
+        this.elements.boweryError.style.display = 'none';
+        this.elements.boweryList.style.display = 'none';
+        this.elements.bowerySearch.value = '';
+        
+        try {
+            // Fetch the repo tree from GitHub API
+            const response = await fetch('https://api.github.com/repos/monome/bowery/git/trees/main?recursive=1');
+            
+            if (!response.ok) {
+                throw new Error(`GitHub API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            // Filter for .lua files only
+            this.boweryScripts = data.tree
+                .filter(item => item.type === 'blob' && item.path.endsWith('.lua'))
+                .map(item => ({
+                    name: item.path.split('/').pop(),
+                    path: item.path,
+                    size: item.size,
+                    url: `https://raw.githubusercontent.com/monome/bowery/main/${item.path}`
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+            
+            this.displayBoweryScripts(this.boweryScripts);
+            
+            this.elements.boweryLoading.style.display = 'none';
+            this.elements.boweryList.style.display = 'block';
+            
+        } catch (error) {
+            this.elements.boweryLoading.style.display = 'none';
+            this.elements.boweryError.style.display = 'block';
+            this.elements.boweryError.textContent = `Error loading bowery scripts: ${error.message}`;
+        }
+    }
+
+    displayBoweryScripts(scripts) {
+        this.elements.boweryList.innerHTML = '';
+        
+        if (scripts.length === 0) {
+            this.elements.boweryList.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--neutral-medium);">No scripts found</div>';
+            return;
+        }
+        
+        scripts.forEach(script => {
+            const item = document.createElement('div');
+            item.className = 'bowery-item';
+            
+            const name = document.createElement('div');
+            name.className = 'bowery-item-name';
+            name.textContent = script.name;
+            
+            const path = document.createElement('div');
+            path.className = 'bowery-item-path';
+            path.textContent = script.path;
+            
+            const size = document.createElement('div');
+            size.className = 'bowery-item-size';
+            size.textContent = `${(script.size / 1024).toFixed(1)} KB`;
+            
+            item.appendChild(name);
+            item.appendChild(path);
+            item.appendChild(size);
+            
+            item.addEventListener('click', () => this.loadBoweryScript(script));
+            
+            this.elements.boweryList.appendChild(item);
+        });
+    }
+
+    filterBoweryScripts(query) {
+        if (!this.boweryScripts) return;
+        
+        const filtered = this.boweryScripts.filter(script => {
+            const searchText = `${script.name} ${script.path}`.toLowerCase();
+            return searchText.includes(query.toLowerCase());
+        });
+        
+        this.displayBoweryScripts(filtered);
+    }
+
+    async loadBoweryScript(script) {
+        try {
+            this.elements.boweryModal.style.display = 'none';
+            
+            const response = await fetch(script.url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch: ${response.status}`);
+            }
+            
+            const content = await response.text();
+            
+            // If editor is visible, load into editor
+            if (this.editorVisible) {
+                this.scriptName = script.name;
+                this.currentFile = null;
+                if (this.editor) {
+                    this.editor.setValue(content);
+                }
+                this.setModified(false);
+                this.updateScriptName();
+            } else {
+                // If editor is hidden, auto-upload to crow
+                if (!this.crow.isConnected) {
+                    this.outputLine('Error: Not connected to crow');
+                    return;
+                }
+                
+                this.outputLine(`Uploading ${script.name}...`);
+                await this.crow.writeLine('^^s');
+                await this.delay(200);
+                
+                const lines = content.split('\n');
+                for (const line of lines) {
+                    await this.crow.writeLine(line);
+                    await this.delay(1);
+                }
+                
+                await this.crow.writeLine('^^w');
+                await this.delay(100);
+                this.outputLine(`Uploaded ${script.name}\n`);
+            }
         } catch (error) {
             this.outputLine(`Error: ${error.message}`);
         }
