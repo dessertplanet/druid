@@ -366,6 +366,7 @@ body {
     flex-direction: column;
     background-color: var(--bg-subdued);
     position: relative;
+    padding-top: 8px;
 }
 
 .repl-editor-container {
@@ -375,20 +376,23 @@ body {
     max-height: 200px;
     border: 1px solid var(--neutral-trim);
     margin: 12px;
-    padding-left: 28px;
+    margin-top: 2px;
+    padding-left: 30px;
 }
 
 .repl-input-container::before {
     content: '>>';
     position: absolute;
     left: 19px;
-    top: 14px;
+    top: 15px;
     color: var(--neutral-medium);
     font-weight: bold;
     font-size: 0.95rem;
     font-family: monospace;
     pointer-events: none;
     z-index: 1;
+    min-height: 42px;
+    height: 42px;
 }
 
 .repl-input-container.editor-mode::before {
@@ -404,13 +408,13 @@ body {
     color: var(--neutral-heavy);
     font-family: monospace;
     font-size: 0.95rem;
-    padding: 11px 8px 4px 32px;
+    padding: 4px 8px 4px 32px;
     margin: 12px;
     margin-top: 0;
     outline: none;
     resize: vertical;
-    height: 28px;
-    min-height: 28px;
+    height: 18px;
+    min-height: 18px;
     max-height: 200px;
     line-height: 1.4;
 }
