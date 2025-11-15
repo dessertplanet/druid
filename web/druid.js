@@ -250,6 +250,36 @@ class DruidApp {
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
         
         require(['vs/editor/editor.main'], () => {
+            // Configure Lua language settings
+            monaco.languages.lua = monaco.languages.lua || {};
+            
+            // Set up Lua diagnostics options
+            monaco.languages.setLanguageConfiguration('lua', {
+                wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g,
+                brackets: [
+                    ['{', '}'],
+                    ['[', ']'],
+                    ['(', ')']
+                ],
+                autoClosingPairs: [
+                    { open: '{', close: '}' },
+                    { open: '[', close: ']' },
+                    { open: '(', close: ')' },
+                    { open: '"', close: '"' },
+                    { open: "'", close: "'" }
+                ],
+                surroundingPairs: [
+                    { open: '{', close: '}' },
+                    { open: '[', close: ']' },
+                    { open: '(', close: ')' },
+                    { open: '"', close: '"' },
+                    { open: "'", close: "'" }
+                ]
+            });
+
+            // Register crow API autocomplete provider
+            this.registerCrowCompletions();
+
             this.editor = monaco.editor.create(this.elements.editorContainer, {
                 value: '-- crow script\n\nfunction init()\n  print("hello crow")\nend\n',
                 language: 'lua',
@@ -262,14 +292,638 @@ class DruidApp {
                 lineNumbers: 'on',
                 folding: true,
                 renderWhitespace: 'selection',
-                tabSize: 2
+                tabSize: 2,
+                matchBrackets: 'always',
+                bracketPairColorization: { enabled: true }
             });
 
             // Track modifications
             this.editor.onDidChangeModelContent(() => {
                 this.setModified(true);
+                this.validateLuaSyntax();
+            });
+
+            // Initial validation
+            this.validateLuaSyntax();
+        });
+    }
+
+    registerCrowCompletions() {
+        monaco.languages.registerCompletionItemProvider('lua', {
+            provideCompletionItems: (model, position) => {
+                const suggestions = [
+                    // Input API
+                    {
+                        label: 'input[n].volts',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'input[${1:n}].volts',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Get current voltage on input n'
+                    },
+                    {
+                        label: 'input[n].query',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'input[${1:n}].query',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: "Send input n's value to host"
+                    },
+                    {
+                        label: 'input[n].mode',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: "input[${1:n}].mode = '${2:stream}'",
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: "Set input mode: 'none', 'stream', 'change', 'window', 'scale', 'volume', 'peak', 'freq', 'clock'"
+                    },
+                    
+                    // Output API
+                    {
+                        label: 'output[n].volts',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'output[${1:n}].volts = ${2:0}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Set output n to specified voltage'
+                    },
+                    {
+                        label: 'output[n].slew',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'output[${1:n}].slew = ${2:0.1}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Set slew time in seconds for output n'
+                    },
+                    {
+                        label: 'output[n].shape',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: "output[${1:n}].shape = '${2:linear}'",
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: "Set slew shape: 'linear', 'sine', 'logarithmic', 'exponential', 'now', 'wait', 'over', 'under', 'rebound'"
+                    },
+                    {
+                        label: 'output[n].scale',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'output[${1:n}].scale({${2:0,2,4,5,7,9,11}})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Quantize output to a scale'
+                    },
+                    {
+                        label: 'output[n].action',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'output[${1:n}].action = ${2:lfo()}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Set output action (lfo, pulse, ar, adsr, etc.)'
+                    },
+                    
+                    // Actions
+                    {
+                        label: 'lfo',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'lfo(${1:time}, ${2:level}, ${3:shape})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Low frequency oscillator action'
+                    },
+                    {
+                        label: 'pulse',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'pulse(${1:time}, ${2:level}, ${3:polarity})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Trigger/gate generator action'
+                    },
+                    {
+                        label: 'ar',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'ar(${1:attack}, ${2:release}, ${3:level}, ${4:shape})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Attack-release envelope'
+                    },
+                    {
+                        label: 'adsr',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'adsr(${1:attack}, ${2:decay}, ${3:sustain}, ${4:release}, ${5:shape})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'ADSR envelope'
+                    },
+                    
+                    // Metro
+                    {
+                        label: 'metro[n].event',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'metro[${1:n}].event = function(c) ${2:print(c)} end',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Set event handler for metro n'
+                    },
+                    {
+                        label: 'metro[n].time',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'metro[${1:n}].time = ${2:1.0}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Set time interval in seconds for metro n'
+                    },
+                    {
+                        label: 'metro[n]:start',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'metro[${1:n}]:start()',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Start metro n'
+                    },
+                    {
+                        label: 'metro[n]:stop',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'metro[${1:n}]:stop()',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Stop metro n'
+                    },
+                    
+                    // Clock
+                    {
+                        label: 'clock.tempo',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'clock.tempo = ${1:120}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Set clock tempo in BPM'
+                    },
+                    {
+                        label: 'clock.run',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'clock.run(${1:func})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Run a function in a coroutine'
+                    },
+                    {
+                        label: 'clock.sleep',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'clock.sleep(${1:seconds})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Sleep for specified time in seconds'
+                    },
+                    {
+                        label: 'clock.sync',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'clock.sync(${1:beats})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Sleep until next sync at specified beat interval'
+                    },
+                    
+                    // Sequins
+                    {
+                        label: 'sequins',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'sequins{${1:1,2,3}}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Create a sequins sequencer'
+                    },
+                    
+                    // ASL
+                    {
+                        label: 'to',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'to(${1:dest}, ${2:time}, ${3:shape})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'ASL primitive: move to destination over time'
+                    },
+                    {
+                        label: 'loop',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'loop{${1:}}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'ASL: loop the sequence'
+                    },
+                    
+                    // ii
+                    {
+                        label: 'ii.jf.play_note',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'ii.jf.play_note(${1:volts}, ${2:level})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Just Friends: play a note at specified voltage and level'
+                    },
+                    {
+                        label: 'ii.jf.trigger',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'ii.jf.trigger(${1:channel}, ${2:state})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Just Friends: set trigger state for channel'
+                    },
+                    
+                    // Utilities
+                    {
+                        label: 'math.random',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'math.random(${1:})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Generate a random number (hardware-based)'
+                    },
+                    {
+                        label: 'public',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'public{${1:name} = ${2:value}}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Create a public variable accessible from host'
+                    },
+                    
+                    // Blackbird (bb namespace) - Workshop Computer specific
+                    {
+                        label: 'bb.knob.main',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'bb.knob.main',
+                        documentation: 'Blackbird: Read main knob value (0.0 to 1.0)'
+                    },
+                    {
+                        label: 'bb.knob.x',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'bb.knob.x',
+                        documentation: 'Blackbird: Read X knob value (0.0 to 1.0)'
+                    },
+                    {
+                        label: 'bb.knob.y',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'bb.knob.y',
+                        documentation: 'Blackbird: Read Y knob value (0.0 to 1.0)'
+                    },
+                    {
+                        label: 'bb.switch',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'bb.switch',
+                        documentation: 'Blackbird: Read 3-position switch state (-1, 0, or 1)'
+                    },
+                    {
+                        label: 'bb.pulsein[n].mode',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: "bb.pulsein[${1:n}].mode = '${2:change}'",
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: "Blackbird: Set pulse input mode ('change' or 'none')"
+                    },
+                    {
+                        label: 'bb.pulsein[n].direction',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: "bb.pulsein[${1:n}].direction = '${2:rising}'",
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: "Blackbird: Set pulse input direction ('rising', 'falling', or 'both')"
+                    },
+                    {
+                        label: 'bb.pulsein[n].callback',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'bb.pulsein[${1:n}].callback = function() ${2:print("pulse")} end',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Blackbird: Set pulse input callback function'
+                    },
+                    {
+                        label: 'bb.pulseout[n]:clock',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'bb.pulseout[${1:n}]:clock(${2:1})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Blackbird: Set pulse output to clock mode with division'
+                    },
+                    {
+                        label: 'bb.pulseout[n]:high',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'bb.pulseout[${1:n}]:high()',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Blackbird: Set pulse output high'
+                    },
+                    {
+                        label: 'bb.pulseout[n]:low',
+                        kind: monaco.languages.CompletionItemKind.Method,
+                        insertText: 'bb.pulseout[${1:n}]:low()',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Blackbird: Set pulse output low'
+                    },
+                    {
+                        label: 'bb.audioin[n].volts',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'bb.audioin[${1:n}].volts',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Blackbird: Read audio input voltage'
+                    },
+                    {
+                        label: 'bb.noise',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'bb.noise(${1:1.0})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Blackbird: Generate audio-rate noise action (gain 0.0-1.0)'
+                    },
+                    {
+                        label: 'bb.asap',
+                        kind: monaco.languages.CompletionItemKind.Property,
+                        insertText: 'bb.asap = function() ${1:-- fast loop} end',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Blackbird: Run code as fast as possible (use carefully)'
+                    },
+                    {
+                        label: 'bb.priority',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: "bb.priority('${1:timing}')",
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: "Blackbird: Set processing priority ('timing', 'balanced', or 'accuracy')"
+                    }
+                ];
+
+                return { suggestions };
+            }
+        });
+
+        // Register signature help provider
+        monaco.languages.registerSignatureHelpProvider('lua', {
+            signatureHelpTriggerCharacters: ['(', ','],
+            provideSignatureHelp: (model, position) => {
+                const textUntilPosition = model.getValueInRange({
+                    startLineNumber: position.lineNumber,
+                    startColumn: 1,
+                    endLineNumber: position.lineNumber,
+                    endColumn: position.column
+                });
+
+                // Find the function call we're in
+                let functionMatch = null;
+                const signatures = [];
+
+                // Output actions
+                if (textUntilPosition.match(/lfo\s*\(/)) {
+                    signatures.push({
+                        label: 'lfo(time, level, shape)',
+                        documentation: 'Low frequency oscillator action',
+                        parameters: [
+                            { label: 'time', documentation: 'Period in seconds (default: 1)' },
+                            { label: 'level', documentation: 'Output level in volts (default: 5)' },
+                            { label: 'shape', documentation: "Waveform shape: 'sine', 'linear', 'expo', 'log' (default: 'sine')" }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/pulse\s*\(/)) {
+                    signatures.push({
+                        label: 'pulse(time, level, polarity)',
+                        documentation: 'Trigger/gate generator action',
+                        parameters: [
+                            { label: 'time', documentation: 'Pulse duration in seconds (default: 0.01)' },
+                            { label: 'level', documentation: 'Pulse height in volts (default: 5)' },
+                            { label: 'polarity', documentation: 'Pulse direction: 1 or -1 (default: 1)' }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/ar\s*\(/)) {
+                    signatures.push({
+                        label: 'ar(attack, release, level, shape)',
+                        documentation: 'Attack-release envelope',
+                        parameters: [
+                            { label: 'attack', documentation: 'Attack time in seconds (default: 0.05)' },
+                            { label: 'release', documentation: 'Release time in seconds (default: 0.5)' },
+                            { label: 'level', documentation: 'Peak level in volts (default: 7)' },
+                            { label: 'shape', documentation: "Envelope shape: 'linear', 'log', 'expo' (default: 'log')" }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/adsr\s*\(/)) {
+                    signatures.push({
+                        label: 'adsr(attack, decay, sustain, release, shape)',
+                        documentation: 'ADSR envelope',
+                        parameters: [
+                            { label: 'attack', documentation: 'Attack time in seconds (default: 0.05)' },
+                            { label: 'decay', documentation: 'Decay time in seconds (default: 0.3)' },
+                            { label: 'sustain', documentation: 'Sustain level in volts (default: 2)' },
+                            { label: 'release', documentation: 'Release time in seconds (default: 2)' },
+                            { label: 'shape', documentation: "Envelope shape: 'linear', 'log', 'expo' (default: 'linear')" }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/\bto\s*\(/)) {
+                    signatures.push({
+                        label: 'to(destination, time, shape)',
+                        documentation: 'ASL primitive: move to destination over time',
+                        parameters: [
+                            { label: 'destination', documentation: 'Target voltage' },
+                            { label: 'time', documentation: 'Time to reach destination in seconds' },
+                            { label: 'shape', documentation: "Optional slope shape: 'linear', 'sine', 'logarithmic', 'exponential', etc." }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/clock\.run\s*\(/)) {
+                    signatures.push({
+                        label: 'clock.run(func, ...)',
+                        documentation: 'Run a function in a coroutine',
+                        parameters: [
+                            { label: 'func', documentation: 'Function to run as a coroutine' },
+                            { label: '...', documentation: 'Optional arguments passed to func' }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/clock\.sleep\s*\(/)) {
+                    signatures.push({
+                        label: 'clock.sleep(seconds)',
+                        documentation: 'Sleep for specified time in seconds',
+                        parameters: [
+                            { label: 'seconds', documentation: 'Time to sleep in seconds' }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/clock\.sync\s*\(/)) {
+                    signatures.push({
+                        label: 'clock.sync(beats)',
+                        documentation: 'Sleep until next sync at specified beat interval',
+                        parameters: [
+                            { label: 'beats', documentation: 'Beat interval (e.g., 1/4 for quarter notes)' }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/ii\.jf\.play_note\s*\(/)) {
+                    signatures.push({
+                        label: 'ii.jf.play_note(volts, level)',
+                        documentation: 'Just Friends: play a note at specified voltage and level',
+                        parameters: [
+                            { label: 'volts', documentation: 'Pitch in volts (V/oct)' },
+                            { label: 'level', documentation: 'Velocity/level (0.0-5.0)' }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/ii\.jf\.trigger\s*\(/)) {
+                    signatures.push({
+                        label: 'ii.jf.trigger(channel, state)',
+                        documentation: 'Just Friends: set trigger state for channel',
+                        parameters: [
+                            { label: 'channel', documentation: 'Trigger channel (1-6)' },
+                            { label: 'state', documentation: 'Trigger state (0 or 1)' }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/bb\.noise\s*\(/)) {
+                    signatures.push({
+                        label: 'bb.noise(gain)',
+                        documentation: 'Blackbird: Generate audio-rate noise action',
+                        parameters: [
+                            { label: 'gain', documentation: 'Noise level (0.0-1.0, default: 1.0)' }
+                        ]
+                    });
+                } else if (textUntilPosition.match(/bb\.priority\s*\(/)) {
+                    signatures.push({
+                        label: "bb.priority(mode)",
+                        documentation: 'Blackbird: Set processing priority mode',
+                        parameters: [
+                            { label: 'mode', documentation: "'timing' (default), 'balanced', or 'accuracy'" }
+                        ]
+                    });
+                }
+
+                if (signatures.length > 0) {
+                    return {
+                        value: {
+                            signatures: signatures,
+                            activeSignature: 0,
+                            activeParameter: this.getActiveParameter(textUntilPosition)
+                        },
+                        dispose: () => {}
+                    };
+                }
+
+                return null;
+            }
+        });
+    }
+
+    getActiveParameter(text) {
+        // Count commas after the opening parenthesis to determine active parameter
+        const openParen = text.lastIndexOf('(');
+        if (openParen === -1) return 0;
+        
+        const afterParen = text.substring(openParen + 1);
+        const commas = (afterParen.match(/,/g) || []).length;
+        return commas;
+    }
+
+    validateLuaSyntax() {
+        if (!this.editor) return;
+
+        const model = this.editor.getModel();
+        const code = model.getValue();
+        const markers = [];
+
+        // Basic Lua syntax validation
+        const lines = code.split('\n');
+        const stack = [];
+        
+        // Track block keywords
+        const blockStarts = ['function', 'if', 'while', 'for', 'do', 'repeat'];
+        const blockEnds = ['end', 'until'];
+        
+        lines.forEach((line, lineNum) => {
+            const trimmed = line.trim();
+            
+            // Check for common syntax errors
+            
+            // Unmatched quotes
+            const singleQuotes = (line.match(/(?<!\\)'/g) || []).length;
+            const doubleQuotes = (line.match(/(?<!\\)"/g) || []).length;
+            
+            if (singleQuotes % 2 !== 0) {
+                markers.push({
+                    severity: monaco.MarkerSeverity.Error,
+                    startLineNumber: lineNum + 1,
+                    startColumn: line.indexOf("'") + 1,
+                    endLineNumber: lineNum + 1,
+                    endColumn: line.length + 1,
+                    message: 'Unmatched single quote'
+                });
+            }
+            
+            if (doubleQuotes % 2 !== 0) {
+                markers.push({
+                    severity: monaco.MarkerSeverity.Error,
+                    startLineNumber: lineNum + 1,
+                    startColumn: line.indexOf('"') + 1,
+                    endLineNumber: lineNum + 1,
+                    endColumn: line.length + 1,
+                    message: 'Unmatched double quote'
+                });
+            }
+            
+            // Check for unbalanced parentheses on the line
+            const openParens = (line.match(/\(/g) || []).length;
+            const closeParens = (line.match(/\)/g) || []).length;
+            const openBrackets = (line.match(/\[/g) || []).length;
+            const closeBrackets = (line.match(/\]/g) || []).length;
+            const openBraces = (line.match(/\{/g) || []).length;
+            const closeBraces = (line.match(/\}/g) || []).length;
+            
+            if (openParens !== closeParens) {
+                markers.push({
+                    severity: monaco.MarkerSeverity.Warning,
+                    startLineNumber: lineNum + 1,
+                    startColumn: 1,
+                    endLineNumber: lineNum + 1,
+                    endColumn: line.length + 1,
+                    message: 'Unbalanced parentheses'
+                });
+            }
+            
+            if (openBrackets !== closeBrackets) {
+                markers.push({
+                    severity: monaco.MarkerSeverity.Warning,
+                    startLineNumber: lineNum + 1,
+                    startColumn: 1,
+                    endLineNumber: lineNum + 1,
+                    endColumn: line.length + 1,
+                    message: 'Unbalanced brackets'
+                });
+            }
+            
+            if (openBraces !== closeBraces) {
+                markers.push({
+                    severity: monaco.MarkerSeverity.Warning,
+                    startLineNumber: lineNum + 1,
+                    startColumn: 1,
+                    endLineNumber: lineNum + 1,
+                    endColumn: line.length + 1,
+                    message: 'Unbalanced braces'
+                });
+            }
+            
+            // Track block structure
+            const words = trimmed.split(/\s+/);
+            const firstWord = words[0];
+            
+            if (blockStarts.includes(firstWord)) {
+                stack.push({ keyword: firstWord, line: lineNum + 1 });
+            } else if (firstWord === 'end') {
+                if (stack.length === 0) {
+                    markers.push({
+                        severity: monaco.MarkerSeverity.Error,
+                        startLineNumber: lineNum + 1,
+                        startColumn: 1,
+                        endLineNumber: lineNum + 1,
+                        endColumn: 4,
+                        message: 'Unexpected "end" without matching block start'
+                    });
+                } else {
+                    stack.pop();
+                }
+            } else if (firstWord === 'until') {
+                const last = stack[stack.length - 1];
+                if (!last || last.keyword !== 'repeat') {
+                    markers.push({
+                        severity: monaco.MarkerSeverity.Error,
+                        startLineNumber: lineNum + 1,
+                        startColumn: 1,
+                        endLineNumber: lineNum + 1,
+                        endColumn: 6,
+                        message: '"until" without matching "repeat"'
+                    });
+                } else {
+                    stack.pop();
+                }
+            }
+            
+            // Check for 'then' after 'if' or 'elseif'
+            if ((firstWord === 'if' || firstWord === 'elseif') && !trimmed.includes('then')) {
+                markers.push({
+                    severity: monaco.MarkerSeverity.Error,
+                    startLineNumber: lineNum + 1,
+                    startColumn: 1,
+                    endLineNumber: lineNum + 1,
+                    endColumn: line.length + 1,
+                    message: `"${firstWord}" statement missing "then"`
+                });
+            }
+        });
+        
+        // Check for unclosed blocks
+        stack.forEach(block => {
+            markers.push({
+                severity: monaco.MarkerSeverity.Error,
+                startLineNumber: block.line,
+                startColumn: 1,
+                endLineNumber: block.line,
+                endColumn: 10,
+                message: `Unclosed "${block.keyword}" block`
             });
         });
+
+        monaco.editor.setModelMarkers(model, 'lua', markers);
     }
 
     setupSplitPane() {
@@ -343,7 +997,7 @@ class DruidApp {
         this.outputLine('Connecting to crow...');
         const success = await this.crow.connect();
         if (success) {
-            this.outputLine('Connected! Ready to code.\n');
+            this.outputLine('Connected! Ready to code.\nDrag and drop a lua file here to auto-upload.\n');
         }
     }
 
@@ -534,14 +1188,13 @@ class DruidApp {
 
     showHelp() {
         this.outputLine('');
-        this.outputLine('crow commands:');
-        this.outputLine('  ^^version     - get firmware version');
-        this.outputLine('  ^^identity    - get device identity');
-        this.outputLine('  ^^print(n)    - get script n from crow');
-        this.outputLine('  ^^kill        - stop running script');
-        this.outputLine('  ^^restart     - restart crow');
-        this.outputLine('  ^^bootloader  - enter bootloader mode');
-        this.outputLine('  ^^c 1-4       - calibrate input/output');
+        this.outputLine(' h            this menu');
+        this.outputLine(' r            runs previous script that was run with r <filename>');
+        this.outputLine(' u            uploads \'sketch.lua\'');
+        this.outputLine(' r <filename> run <filename>');
+        this.outputLine(' u <filename> upload <filename>');
+        this.outputLine(' p            print current userscript');
+        this.outputLine(' q            quit');
         this.outputLine('');
     }
 

@@ -57,7 +57,7 @@ body {
 .header-left {
     position: absolute;
     left: 10px;
-    top: 16px;
+    top: 17px;
     display: flex;
     align-items: center;
     gap: 12px;
