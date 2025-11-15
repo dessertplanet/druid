@@ -1,6 +1,6 @@
 # druid web
 
-A web-based editor and REPL for [monome crow](https://github.com/monome/crow) using the Web Serial API. Inspired by [maiden](https://github.com/monome/maiden), the norns web editor.
+A web-based editor and REPL for [monome crow](https://github.com/monome/crow) and compatible devices like [blackbird](https://github.com/TomWhitwell/Workshop_Computer) using the Web Serial API. Inspired by [maiden](https://github.com/monome/maiden), the norns web editor.
 
 ## Overview
 
@@ -8,15 +8,21 @@ A web-based editor and REPL for [monome crow](https://github.com/monome/crow) us
 
 ## Features
 
-- 🎨 **Maiden-inspired interface** - Clean, minimal design matching maiden's aesthetic
-- 📝 **Monaco code editor** - Full-featured editor with syntax highlighting for Lua
-- 📡 **Direct USB connection** - Connect to crow via Web Serial API
+- 🎨 **Maiden-inspired interface** - Clean, minimal macOS dark mode aesthetic
+- 📝 **Monaco code editor** - Full-featured editor with Lua syntax highlighting
+- 🔍 **IntelliSense** - Autocomplete for crow and blackbird APIs with signature help
+- ✅ **Syntax validation** - Real-time Lua syntax checking with error markers
+- 🎯 **Bracket matching** - Auto-closing pairs and colorized bracket pairs
+- 📡 **Direct USB connection** - Connect to crow/blackbird via Web Serial API
 - 💻 **Split-screen layout** - Code editor on left, REPL output/input on right
-- ▶️ **Run & upload scripts** - Execute scripts immediately or save to crow's flash
-- 💾 **File operations** - Open, edit, and save Lua scripts locally
-- ⌨️ **Keyboard shortcuts** - ⌘P to run, ⌘S to save
+- 🔀 **Toggle editor** - Hide editor for REPL-only mode
+- ▶️ **Run & upload scripts** - Execute scripts immediately or save to flash
+- 📤 **Send selection to crow** - Right-click or ⌘Enter to execute selected code
+- 💾 **File operations** - Open, edit, save, and rename Lua scripts
+- 🗂️ **Drag & drop** - Drop .lua files on editor to open, or on REPL to upload
+- ⌨️ **Keyboard shortcuts** - ⌘P to run, ⌘S to save, ⌘Enter to send selection
 - 🔄 **Resizable panes** - Adjust editor/REPL split to your preference
-- 📜 **Dual REPL tabs** - Separate output view and multi-line input area
+- 🌓 **macOS dark theme** - Carefully crafted dark mode color scheme
 
 ## Browser Requirements
 
@@ -35,7 +41,7 @@ A web-based editor and REPL for [monome crow](https://github.com/monome/crow) us
 Simply open `index.html` in a supported browser:
 
 ```bash
-cd web
+cd src/web-druid
 open index.html  # macOS
 # or
 xdg-open index.html  # Linux
@@ -47,7 +53,7 @@ xdg-open index.html  # Linux
 For a better development experience, serve the files with a local HTTP server:
 
 ```bash
-cd web
+cd src/web-druid
 
 # Python 3
 python3 -m http.server 8000
@@ -65,56 +71,114 @@ Then open `http://localhost:8000` in your browser.
 
 ## Usage
 
-### Connecting to crow
+### Connecting to crow or blackbird
 
-1. Click **"connect"** button in the toolbar
-2. Select your crow device from the browser's serial port picker
+1. Click **"connect"** button in the top-right header
+2. Select your crow/blackbird device from the browser's serial port picker
 3. Grant permission to access the device
-4. The status indicator will turn teal when connected
+4. The status pill will turn teal and show "connected"
 
 ### Code Editor
 
-The left pane contains a full Monaco code editor:
+The left pane contains a full Monaco code editor with advanced features:
 
-- Write Lua scripts with syntax highlighting
-- Use standard editor features (find, replace, etc.)
-- Scripts start with a basic template
-- Modified indicator (•) appears when unsaved
+**Editor features:**
+- Lua syntax highlighting and validation
+- Real-time error checking with red squiggly underlines
+- Autocomplete for crow and blackbird APIs (Ctrl+Space)
+- Signature help showing function parameters as you type
+- Bracket matching and auto-closing pairs
+- Colorized bracket pairs for easier nesting
+- Modified indicator (•) appears in title when unsaved
 
 **Editor actions:**
-- **New** - Create a new script (⌘N to clear)
+- **New** - Create a new script
 - **Open** - Load a .lua file from your computer
 - **Save** - Download current script to your computer (⌘S)
-- **▶ Run** - Execute the script on crow without saving (⌘P)
+- **Rename** - Change the script filename
+- **▶ Run** - Execute the script on crow without saving to flash (⌘P)
 - **↑ Upload** - Save script to crow's flash memory
 
-### REPL Tabs
+**Send selection to crow:**
+- Select code in the editor and press **⌘Enter** (or **Ctrl+Enter**)
+- Or right-click selected code and choose "Send Selection to Crow"
+- If nothing is selected, sends the current line
+- Perfect for testing individual functions or code snippets
 
-The right pane has two tabs:
+**Toggle editor:**
+- Use the switch in the top-right to hide/show the editor pane
+- Useful for REPL-only workflows
 
-**Output tab** - View crow's responses and print statements
+### REPL
+
+The right pane provides interactive command execution:
+
+- View crow's responses and print statements
 - Auto-scrolls to newest output
 - Shows script execution feedback
-- Displays errors and messages from crow
+- Multi-line input with **Shift+Enter** for newlines
+- Press **Enter** to execute code
+- **Help** button shows druid command reference
+- **Clear** button clears output history
 
-**Input tab** - Multi-line Lua code entry
-- Write and test code snippets
-- Press ⌘Enter (or Ctrl+Enter) to execute
-- Useful for quick commands without editing the main script
+### Drag & Drop
 
-### Crow System Commands
+**Drop files to auto-load or auto-upload:**
+- Drop a `.lua` file on the **editor pane** → Opens the file in the editor
+- Drop a `.lua` file on the **REPL pane** → Uploads directly to crow's flash
 
-You can send special commands to crow:
+### Autocomplete & IntelliSense
 
-- `^^v` - Print firmware version
-- `^^p` - Print current userscript
-- `^^r` - Reset/reboot crow
-- `^^k` - Kill/restart Lua environment
-- `^^i` - Print identity (serial number)
-- `^^c` - Clear userscript
-- `^^b` - Enter bootloader mode
+The editor includes comprehensive API documentation:
 
-Type these in the input tab and press ⌘Enter.
+**Crow APIs:**
+- `input[n]` - Input queries, modes, and event handlers
+- `output[n]` - Output voltages, slew, shapes, scales, actions
+- `lfo()`, `pulse()`, `ar()`, `adsr()` - Output actions
+- `metro[n]` - Timers and event scheduling
+- `clock` - Tempo-based timing and coroutines
+- `sequins` - Step sequencers
+- `to()`, `loop{}` - ASL (a slope language)
+- `ii.jf` - Just Friends i2c control
+- And more...
+
+**Blackbird APIs (Workshop Computer):**
+- `bb.knob.main`, `bb.knob.x`, `bb.knob.y` - Read knob values
+- `bb.switch` - Read 3-position switch
+- `bb.pulsein[n]` - Pulse input detection with callbacks
+- `bb.pulseout[n]` - Pulse output control with clock sync
+- `bb.audioin[n]` - Audio input voltage reading
+- `bb.noise()` - Audio-rate noise generation
+- `bb.asap` - Fast-running control loop
+- `bb.priority()` - Processing priority modes
+
+**How to use:**
+- Start typing and autocomplete suggestions appear automatically
+- Press **Ctrl+Space** to manually trigger autocomplete
+- When typing function calls, signature help shows parameter info
+- Hover over suggestions to see detailed documentation
+
+### Crow/Blackbird System Commands
+
+You can send special commands to crow or blackbird in the REPL:
+
+- `^^v` or `^^version` - Print firmware version
+- `^^i` or `^^identity` - Print device identity/serial number
+- `^^p` - Print current userscript from flash
+- `^^k` or `^^kill` - Kill/restart Lua environment
+- `^^r` or `^^restart` - Restart crow
+- `^^b` or `^^bootloader` - Enter bootloader mode
+- `^^c 1-4` - Calibrate input/output
+
+Type these commands in the REPL input and press Enter.
+
+## Keyboard Shortcuts
+
+- **⌘P** / **Ctrl+P** - Run script (execute without saving to flash)
+- **⌘S** / **Ctrl+S** - Save script to local file
+- **⌘Enter** / **Ctrl+Enter** - Send selected code (or current line) to crow
+- **Enter** - Execute REPL input
+- **Shift+Enter** - New line in REPL input (without executing)
 
 ## Limitations
 
@@ -189,9 +253,15 @@ The browser requires explicit user permission to access serial ports. You must c
 | Feature | druid (CLI) | druid web |
 |---------|-------------|-----------|
 | Code editor | External | ✅ Built-in Monaco editor |
-| REPL | ✅ | ✅ Split view with tabs |
+| Syntax highlighting | Depends on editor | ✅ Built-in Lua |
+| Syntax validation | ❌ | ✅ Real-time error checking |
+| Autocomplete | ❌ | ✅ Crow & Blackbird APIs |
+| Signature help | ❌ | ✅ Parameter tooltips |
+| REPL | ✅ | ✅ Integrated view |
 | Run scripts | ✅ | ✅ One-click execution |
 | Upload scripts | ✅ | ✅ Upload & save |
+| Send selection | ❌ | ✅ Right-click or ⌘Enter |
+| Drag & drop files | ❌ | ✅ Auto-open or upload |
 | Download scripts | ✅ | ❌ (open local files instead) |
 | Firmware updates | ✅ | ❌ DFU not accessible |
 | WebSocket server | ✅ | ❌ |
@@ -199,7 +269,6 @@ The browser requires explicit user permission to access serial ports. You must c
 | Works offline | ✅ | ✅ (after loading page) |
 | Multi-file projects | ✅ | ❌ Single file editing |
 | Split-screen view | ❌ | ✅ Editor + REPL |
-| Syntax highlighting | Depends on editor | ✅ Built-in |
 
 ## License
 
@@ -209,5 +278,7 @@ Same as druid - see LICENSE file in the repository root.
 
 - [monome crow](https://monome.org/docs/crow/)
 - [crow firmware](https://github.com/monome/crow)
+- [blackbird for Workshop Computer](https://github.com/TomWhitwell/Workshop_Computer)
 - [druid (CLI)](https://github.com/monome/druid)
 - [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API)
+- [Monaco Editor](https://microsoft.github.io/monaco-editor/)
