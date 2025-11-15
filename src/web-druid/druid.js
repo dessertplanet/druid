@@ -423,12 +423,50 @@ class DruidApp {
             acceptSuggestionOnEnter: 'on'
         });
 
+        // Add placeholder text
+        this.replPlaceholder = {
+            domNode: null,
+            getId: function() { return 'repl.placeholder'; },
+            getDomNode: function() {
+                if (!this.domNode) {
+                    this.domNode = document.createElement('div');
+                    this.domNode.style.color = '#8b8b8b';
+                    this.domNode.style.fontFamily = 'monospace';
+                    this.domNode.style.fontSize = '14px';
+                    this.domNode.style.pointerEvents = 'none';
+                    this.domNode.style.whiteSpace = 'nowrap';
+                    this.domNode.style.marginTop = '4px';
+                    this.domNode.style.marginLeft = '4px';
+                    this.domNode.textContent = 'send word to the bird';
+                }
+                return this.domNode;
+            },
+            getPosition: function() {
+                return {
+                    position: { lineNumber: 1, column: 1 },
+                    preference: [monaco.editor.ContentWidgetPositionPreference.EXACT]
+                };
+            }
+        };
+
+        // Show/hide placeholder based on content
+        const updatePlaceholder = () => {
+            if (this.replEditor.getValue() === '') {
+                this.replEditor.addContentWidget(this.replPlaceholder);
+            } else {
+                this.replEditor.removeContentWidget(this.replPlaceholder);
+            }
+        };
+
+        updatePlaceholder();
+        this.replEditor.onDidChangeModelContent(updatePlaceholder);
+
         // Handle Enter key - send command ONLY when suggestion widget is not visible
         this.replEditor.addCommand(monaco.KeyCode.Enter, () => {
             if (!this.replAutocompleteEnabled) return;
             
             const code = this.replEditor.getValue().trim();
-            if (code && this.crow.isConnected) {
+            if (code) {
                 this.sendReplCommand(code);
             }
         }, '!suggestWidgetVisible');
@@ -555,6 +593,12 @@ class DruidApp {
         // Output the sent command BEFORE sending to ensure it appears first
         this.outputLine(`>> ${code}`);
         
+        if (!this.crow.isConnected) {
+            this.outputLine('crow is not connected');
+            this.replEditor.setValue('');
+            return;
+        }
+        
         try {
             const lines = code.split('\n');
             for (const line of lines) {
@@ -592,9 +636,7 @@ class DruidApp {
             }
             
             // Focus the editor
-            if (this.crow.isConnected) {
-                this.replEditor.focus();
-            }
+            this.replEditor.focus();
         } else {
             // Show textarea, hide Monaco editor
             this.elements.replEditorContainer.style.display = 'none';
@@ -608,9 +650,7 @@ class DruidApp {
             }
             
             // Focus the textarea
-            if (this.crow.isConnected) {
-                this.elements.replInput.focus();
-            }
+            this.elements.replInput.focus();
         }
     }
 
@@ -618,6 +658,22 @@ class DruidApp {
         monaco.languages.registerCompletionItemProvider('lua', {
             provideCompletionItems: (model, position) => {
                 const suggestions = [
+                    // Lua basics
+                    {
+                        label: 'print',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'print(${1:value})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Print values to output'
+                    },
+                    {
+                        label: 'tab.print',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'tab.print(${1:table})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Print table contents (crow-specific)'
+                    },
+                    
                     // Input API
                     {
                         label: 'input[n].volts',
@@ -1181,9 +1237,15 @@ class DruidApp {
         } else if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             const code = this.elements.replInput.value.trim();
-            if (code && this.crow.isConnected) {
+            if (code) {
                 // Output the sent command BEFORE sending to ensure it appears first
                 this.outputLine(`>> ${code}`);
+                
+                if (!this.crow.isConnected) {
+                    this.outputLine('crow is not connected');
+                    this.elements.replInput.value = '';
+                    return;
+                }
                 
                 try {
                     const lines = code.split('\n');
@@ -1250,12 +1312,6 @@ class DruidApp {
     handleConnectionChange(connected, error) {
         this.elements.runBtn.disabled = !connected;
         this.elements.uploadBtn.disabled = !connected;
-        this.elements.replInput.disabled = !connected;
-        
-        // Enable/disable REPL editor
-        if (this.replEditor) {
-            this.replEditor.updateOptions({ readOnly: !connected });
-        }
 
         if (connected) {
             this.elements.connectionBtn.textContent = 'disconnect';

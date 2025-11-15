@@ -380,11 +380,16 @@ body {
     padding-left: 30px;
 }
 
+.repl-editor-container .monaco-editor .view-line {
+    padding-top: 2px;
+    padding-left: 4px;
+}
+
 .repl-input-container::before {
     content: '>>';
     position: absolute;
     left: 19px;
-    top: 15px;
+    top: 14px;
     color: var(--neutral-medium);
     font-weight: bold;
     font-size: 0.95rem;
@@ -421,11 +426,6 @@ body {
 
 .repl-input:focus {
     border-color: var(--interactive-selected);
-}
-
-.repl-input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
 }
 
 /* REPL Actions */
