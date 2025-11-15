@@ -87,7 +87,7 @@ class CrowConnection {
                 }
                 
                 if (this.onConnectionChange) {
-                    this.onConnectionChange(false, 'device disconnected - click connect to reconnect');
+                    this.onConnectionChange(false, 'device disconnected - click connect at the top to reconnect');
                 }
             }
         }
@@ -241,6 +241,9 @@ class DruidApp {
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcut(e));
+
+        // Drag and drop
+        this.setupDragAndDrop();
     }
 
     initializeEditor() {
@@ -540,6 +543,110 @@ class DruidApp {
         this.outputLine('  ^^bootloader  - enter bootloader mode');
         this.outputLine('  ^^c 1-4       - calibrate input/output');
         this.outputLine('');
+    }
+
+    setupDragAndDrop() {
+        // Prevent default drag behaviors on the whole document
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        // Editor pane drop
+        this.elements.editorPane.addEventListener('drop', async (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.lua')) {
+                    await this.loadFileFromDrop(file);
+                } else {
+                    this.outputLine('Error: Only .lua files are supported');
+                }
+            }
+        });
+
+        // REPL pane drop
+        this.elements.replPane.addEventListener('drop', async (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.lua')) {
+                    await this.uploadFileFromDrop(file);
+                } else {
+                    this.outputLine('Error: Only .lua files are supported');
+                }
+            }
+        });
+
+        // Visual feedback on dragover
+        this.elements.editorPane.addEventListener('dragover', (e) => {
+            this.elements.editorPane.style.opacity = '0.7';
+        });
+
+        this.elements.editorPane.addEventListener('dragleave', (e) => {
+            this.elements.editorPane.style.opacity = '1';
+        });
+
+        this.elements.editorPane.addEventListener('drop', (e) => {
+            this.elements.editorPane.style.opacity = '1';
+        });
+
+        this.elements.replPane.addEventListener('dragover', (e) => {
+            this.elements.replPane.style.opacity = '0.7';
+        });
+
+        this.elements.replPane.addEventListener('dragleave', (e) => {
+            this.elements.replPane.style.opacity = '1';
+        });
+
+        this.elements.replPane.addEventListener('drop', (e) => {
+            this.elements.replPane.style.opacity = '1';
+        });
+    }
+
+    async loadFileFromDrop(file) {
+        try {
+            const text = await file.text();
+            this.scriptName = file.name;
+            this.currentFile = null; // Reset file handle since this is drag-drop
+            if (this.editor) {
+                this.editor.setValue(text);
+            }
+            this.setModified(false);
+            this.updateScriptName();
+            this.outputLine(`Loaded ${file.name} into editor`);
+        } catch (error) {
+            this.outputLine(`Error loading file: ${error.message}`);
+        }
+    }
+
+    async uploadFileFromDrop(file) {
+        if (!this.crow.isConnected) {
+            this.outputLine('Error: Not connected to crow');
+            return;
+        }
+
+        try {
+            const text = await file.text();
+            this.outputLine(`Uploading ${file.name}...`);
+            
+            await this.crow.writeLine('^^s');
+            await this.delay(200);
+            
+            const lines = text.split('\\n');
+            for (const line of lines) {
+                await this.crow.writeLine(line);
+                await this.delay(1);
+            }
+            
+            await this.crow.writeLine('^^w');
+            await this.delay(100);
+            this.outputLine(`Uploaded ${file.name}\\n`);
+        } catch (error) {
+            this.outputLine(`Upload error: ${error.message}\\n`);
+        }
     }
 
     delay(ms) {
