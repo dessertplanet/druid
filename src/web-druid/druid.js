@@ -198,7 +198,10 @@ class DruidApp {
             bowerySearch: document.getElementById('bowerySearch'),
             boweryLoading: document.getElementById('boweryLoading'),
             boweryError: document.getElementById('boweryError'),
-            boweryList: document.getElementById('boweryList')
+            boweryList: document.getElementById('boweryList'),
+            bbboweryBtn: document.getElementById('bbboweryBtn'),
+            bbboweryModal: document.getElementById('bbboweryModal'),
+            closeBbbowery: document.getElementById('closeBbbowery')
         };
 
         this.outputLine('//// welcome. connect to crow or blackbird to begin.');
@@ -226,6 +229,9 @@ class DruidApp {
         this.elements.newBtn.addEventListener('click', () => this.newScript());
         this.elements.openBtn.addEventListener('click', () => this.openScript());
         this.elements.boweryBtn.addEventListener('click', () => this.openBoweryBrowser());
+        this.elements.bbboweryBtn.addEventListener('click', () => {
+            this.elements.bbboweryModal.style.display = 'flex';
+        });
         this.elements.saveBtn.addEventListener('click', () => this.saveScript());
         this.elements.renameBtn.addEventListener('click', () => this.renameScript());
 
@@ -246,6 +252,10 @@ class DruidApp {
         
         this.elements.closeBowery.addEventListener('click', () => {
             this.elements.boweryModal.style.display = 'none';
+        });
+        
+        this.elements.closeBbbowery.addEventListener('click', () => {
+            this.elements.bbboweryModal.style.display = 'none';
         });
         
         this.elements.bowerySearch.addEventListener('input', (e) => {
@@ -1359,7 +1369,7 @@ class DruidApp {
             
             const response = await fetch(script.url);
             if (!response.ok) {
-                throw new Error(`Failed to fetch: ${response.status}`);
+                throw new Error(`Failed to fetch (check connection): ${response.status}`);
             }
             
             const content = await response.text();
